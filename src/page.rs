@@ -1,4 +1,6 @@
-use crate::util::{Date, DateTime};
+use chrono::NaiveDateTime;
+
+use crate::util::{Date, DateTime, Error};
 
 #[derive(Debug)]
 pub enum Namespace {
@@ -23,12 +25,34 @@ pub enum Namespace {
   Other(i32),
 }
 
-#[derive(Debug)]
+#[derive(
+  Debug,
+  PartialEq,
+  derive_more::From,
+  derive_more::Into,
+  derive_more::AsRef,
+  derive_more::AsMut,
+)]
+pub struct TitleDate(pub Option<Date>);
+
+#[derive(
+  Debug,
+  derive_more::From,
+  derive_more::Into,
+  derive_more::AsRef,
+  derive_more::AsMut,
+)]
+pub struct WikiTimestamp(pub DateTime);
+
+#[derive(sqlx::FromRow, Debug)]
 pub struct Page {
   pub title: String,
   pub text: String,
-  pub title_date: Option<Date>,
-  pub page_touched: DateTime,
+  #[sqlx(rename = "title", try_from = "String")]
+  pub title_date: TitleDate,
+  #[sqlx(try_from = "String")]
+  pub page_touched: WikiTimestamp,
+  #[sqlx(try_from = "i32")]
   pub namespace: Namespace,
 }
 
@@ -51,9 +75,100 @@ impl From<i32> for Namespace {
       11 => Namespace::TemplateTalk,
       13 => Namespace::HelpTalk,
       15 => Namespace::CategoryTalk,
+      828 => Namespace::Module,
+      829 => Namespace::ModuleTalk,
       -1 => Namespace::Special,
       -2 => Namespace::Media,
       _ => Namespace::Other(value),
     }
+  }
+}
+
+const TITLE_DATE_FORMATS: [&str; 7] = [
+  // Jan 2, 2023
+  "%b %-d, %Y",
+  // Jan 02, 2023
+  "%b %0d, %Y",
+  // 2023-01-02 (unused?)
+  "%Y-%m-%d",
+  // 2023-01-02 (unused?)
+  "%Y年%m月%d日",
+  // 2023-01 (e.g. category)
+  "%Y-%m",
+  // 2023 Jan
+  "%Y %b",
+  // 2023 (e.g. category)
+  "%Y",
+];
+
+impl TryFrom<String> for TitleDate {
+  type Error = Error;
+
+  // try parse the prefix of the value with above formats
+  fn try_from(value: String) -> Result<Self, Self::Error> {
+    let value = value.replace('_', " ");
+
+    use chrono::format::{parse_and_remainder, Parsed, StrftimeItems};
+
+    for format in TITLE_DATE_FORMATS.iter() {
+      let mut parsed = Parsed::new();
+      let fmt = StrftimeItems::new(format);
+
+      let Ok(_) = parse_and_remainder(&mut parsed, &value, fmt) else {
+        continue;
+      };
+
+      parsed.month.get_or_insert(1);
+      parsed.day.get_or_insert(1);
+
+      let Some(year) = parsed.year else { continue };
+
+      if !(1900..=2300).contains(&year) {
+        // this is almost definitely a mismatch
+        continue;
+      }
+
+      let Ok(date) = parsed.to_naive_date() else {
+        continue;
+      };
+
+      return Ok(TitleDate(Some(date)));
+    }
+
+    Ok(TitleDate(None))
+  }
+}
+
+impl TryFrom<String> for WikiTimestamp {
+  type Error = Error;
+
+  fn try_from(value: String) -> Result<Self, Self::Error> {
+    const FORMAT: &str = "%Y%m%d%H%M%S";
+    let date_time = NaiveDateTime::parse_from_str(&value, FORMAT)
+      .map_err(|_e| Error::InvalidDate(value))?;
+    Ok(WikiTimestamp(date_time.and_utc()))
+  }
+}
+
+#[cfg(test)]
+mod test {
+  #[test]
+  fn title_date_parsing() {
+    use super::TitleDate;
+    use chrono::NaiveDate;
+
+    let date = NaiveDate::from_ymd_opt(2023, 1, 1).unwrap();
+    let title_date = &TitleDate(Some(date));
+
+    let assert_parse = |title_date, s: &str| {
+      let parsed_title_date: TitleDate = s.to_string().try_into().unwrap();
+      assert_eq!(title_date, &parsed_title_date);
+    };
+
+    assert_parse(title_date, "Jan 1, 2023");
+    assert_parse(title_date, "Jan 01, 2023");
+    assert_parse(title_date, "Jan 1, 2023/Note");
+    assert_parse(title_date, "2023-01");
+    assert_parse(title_date, "2023");
   }
 }

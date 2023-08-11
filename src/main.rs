@@ -4,8 +4,6 @@ mod page;
 mod util;
 mod wiki;
 
-use chrono::{Days, Utc};
-
 use crate::{config::Config, util::Result, wiki::Wiki};
 
 #[tokio::main(flavor = "current_thread")]
@@ -16,18 +14,24 @@ async fn main() -> Result<()> {
   };
 
   let mut wiki = Wiki::new(&config).await?;
-  let date = Utc::now().checked_sub_days(Days::new(100000)).unwrap();
-  let pages = wiki.list_page_titles(date).await?;
+  let pages = wiki.list_pages().await?;
+
+  let mut count = 0;
 
   dbg!(pages.len());
-
-  for title in pages {
-    println!("{title}");
+  for page in pages {
+    if let &Some(d) = page.title_date.as_ref() {
+      dbg!(page.title, d);
+      count += 1;
+    }
   }
+
+  dbg!(count);
 
   Ok(())
 }
 
+#[allow(unused)]
 fn playground() {
   use tantivy::schema::*;
   let mut schema_builder = Schema::builder();

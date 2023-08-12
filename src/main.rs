@@ -1,26 +1,24 @@
 mod cli;
-mod config;
 mod page;
 mod search;
 mod server;
 mod util;
 mod wiki;
 
+use clap::Parser;
 use cli::Cli;
 
-use crate::{config::Config, util::Result};
+use crate::util::Result;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
-  tracing_subscriber::fmt::init();
+  tracing_subscriber::fmt().without_time().init();
 
-  let config = Config {
-    wiki_sqlite_file: "/home/shou/tmp/my_wiki.sqlite".into(),
-    index_dir: "/home/shou/tmp/index".into(),
-  };
+  #[cfg(feature = "dotenv")]
+  let _ = dotenv::dotenv();
 
-  let cli: Cli = argh::from_env();
-  cli.run(&config).await?;
+  let cli = Cli::parse();
+  cli.run().await?;
 
   Ok(())
 }

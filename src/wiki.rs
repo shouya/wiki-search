@@ -1,15 +1,17 @@
+use std::path::Path;
+
 use sqlx::{Connection, SqliteConnection};
 
-use crate::{config::Config, page::Page, util::Result};
+use crate::{page::Page, util::Result};
 
 pub struct Wiki {
   conn: SqliteConnection,
 }
 
 impl Wiki {
-  pub async fn new(config: &Config) -> Result<Self> {
+  pub async fn new(sqlite_path: &Path) -> Result<Self> {
     let options = sqlx::sqlite::SqliteConnectOptions::new()
-      .filename(&config.wiki_sqlite_file)
+      .filename(sqlite_path)
       .read_only(true)
       .immutable(true);
 

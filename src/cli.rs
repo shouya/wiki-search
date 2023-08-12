@@ -1,72 +1,69 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, path::PathBuf};
 
-use argh::FromArgs;
+use clap::{Args, Parser, Subcommand};
+use tracing::info;
 
-use crate::{config::Config, search::Search, util::Result, wiki::Wiki};
+use crate::{search::Search, util::Result, wiki::Wiki};
 
-#[derive(FromArgs)]
+#[derive(Parser)]
 /// command line interface
 pub struct Cli {
-  #[argh(subcommand)]
-  command: Subcommand,
+  /// path to mediawiki sqlite database
+  #[arg(short, long, env)]
+  sqlite_path: PathBuf,
+
+  /// path to search index
+  #[arg(short, long, env)]
+  index_dir: PathBuf,
+
+  #[command(subcommand)]
+  command: Command,
 }
 
-#[derive(FromArgs)]
-/// subcommands
-#[argh(subcommand)]
-pub enum Subcommand {
-  /// run the server
-  Server(Server),
-  /// run command line query
-  Query(Query),
-  /// re-index
-  Reindex(Reindex),
-}
-
-#[derive(FromArgs)]
-#[argh(subcommand, name = "server")]
-/// run the server
-pub struct Server {
-  /// bind address
-  #[argh(option, short = 'b', default = "\"127.0.0.1:3000\".parse().unwrap()")]
-  bind_addr: SocketAddr,
-}
-
-#[derive(FromArgs)]
-#[argh(subcommand, name = "query")]
-/// run command line query
-pub struct Query {
-  #[argh(positional)]
-  /// query string
-  pub query: String,
-
+#[derive(Args)]
+pub struct QueryOpts {
   /// disable highlighting on matched terms
-  #[argh(option, short = 'c', default = "false")]
-  pub no_color: bool,
+  #[arg(short('c'), long, default_value_t = false)]
+  no_color: bool,
 
   /// number of results to return
-  #[argh(option, short = 'n', default = "10")]
-  pub count: usize,
+  #[arg(short('n'), long, default_value_t = 10)]
+  count: usize,
 }
 
-#[derive(FromArgs)]
-#[argh(subcommand, name = "reindex")]
-/// re-index
-pub struct Reindex {}
+#[derive(Subcommand)]
+/// subcommands
+pub enum Command {
+  /// run the server
+  Server {
+    #[arg(short, long, default_value = "127.0.0.1:3000")]
+    bind_addr: SocketAddr,
+  },
+  /// run command line query
+  Query {
+    /// query string
+    query: String,
+
+    #[command(flatten)]
+    opts: QueryOpts,
+  },
+  /// re-index
+  Reindex,
+}
 
 impl Cli {
-  pub async fn run(self, config: &Config) -> Result<()> {
-    match self.command {
-      Subcommand::Server(ref opts) => self.run_server(opts, config).await,
-      Subcommand::Query(ref opts) => self.run_query(opts, config),
-      Subcommand::Reindex(_) => self.run_reindex(config).await,
+  pub async fn run(self) -> Result<()> {
+    match &self.command {
+      Command::Server { bind_addr } => self.run_server(*bind_addr).await,
+      Command::Query { query, opts } => self.run_query(query, opts),
+      Command::Reindex => self.run_reindex().await,
     }
   }
 
-  pub fn run_query(&self, opts: &Query, config: &Config) -> Result<()> {
-    let search = Search::new(config)?;
+  pub fn run_query(&self, query: &String, opts: &QueryOpts) -> Result<()> {
+    let search = Search::new(&self.index_dir)?;
 
-    for mut entry in search.query(&opts.query, opts.count)? {
+    for mut entry in search.query(query, opts.count)? {
       entry
         .text_snippet
         .set_snippet_prefix_postfix("\x1b[42;30m", "\x1b[m");
@@ -87,19 +84,30 @@ impl Cli {
     Ok(())
   }
 
-  pub async fn run_server(&self, opts: &Server, config: &Config) -> Result<()> {
-    let wiki = Wiki::new(config).await?;
-    let search = Search::new(config)?;
+  pub async fn run_server(&self, bind_addr: SocketAddr) -> Result<()> {
+    let wiki = Wiki::new(&self.sqlite_path).await?;
+    let search = Search::new(&self.index_dir)?;
 
-    let server = crate::server::Server::new(opts.bind_addr, search, wiki);
+    let server = crate::server::Server::new(bind_addr, search, wiki);
     server.run().await
   }
 
-  pub async fn run_reindex(&self, config: &Config) -> Result<()> {
-    let mut wiki = Wiki::new(config).await?;
-    let mut search = Search::new(config)?;
+  pub async fn run_reindex(&self) -> Result<()> {
+    use std::{fs, time::Instant};
+
+    fs::remove_dir_all(&self.index_dir).ok();
+    fs::create_dir_all(&self.index_dir).ok();
+
+    let mut wiki = Wiki::new(&self.sqlite_path).await?;
+    let mut search = Search::new(&self.index_dir)?;
+
+    let t = Instant::now();
     let pages = wiki.list_pages().await?;
+    info!("Listed pages ({}) (spent {:?})", pages.len(), t.elapsed());
+
+    let t = Instant::now();
     search.index_pages(pages.into_iter())?;
+    info!("Indexed pages (spent {:?})", t.elapsed());
 
     Ok(())
   }

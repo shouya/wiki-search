@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use tantivy::{
   directory::MmapDirectory,
   schema::{Field, Schema},
@@ -7,7 +9,7 @@ use tantivy::{
 use tantivy_jieba::JiebaTokenizer;
 use tracing::debug;
 
-use crate::{config::Config, page::Page, util::Result};
+use crate::{page::Page, util::Result};
 
 pub struct Fields {
   id: Field,
@@ -35,9 +37,9 @@ pub struct PageMatchEntry {
 }
 
 impl Search {
-  pub fn new(config: &Config) -> Result<Self> {
+  pub fn new(index_dir: &Path) -> Result<Self> {
     let (fields, schema) = build_schema();
-    let dir = MmapDirectory::open(&config.index_dir)
+    let dir = MmapDirectory::open(index_dir)
       .map_err(|e| e.to_string())
       .unwrap();
 
@@ -61,7 +63,7 @@ impl Search {
     &mut self,
     pages: impl Iterator<Item = Page>,
   ) -> Result<()> {
-    let mut writer = self.index.writer(50_000_000)?;
+    let mut writer = self.index.writer(128_000_000)?;
 
     for page in pages {
       self.index_page(&writer, page)?;

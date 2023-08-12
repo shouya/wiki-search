@@ -6,9 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-argh = "0.1.12"
 axum = { version = "0.6.20", features = ["macros"] }
 chrono = "0.4.26"
+clap = { version = "4.3.21", features = ["derive", "env"] }
 derive_more = "0.99.17"
 futures-util = "0.3.28"
 http = "0.2.9"
@@ -22,3 +22,7 @@ thiserror = "1.0.44"
 tokio = { version = "1.30.0", features = ["macros", "sync", "time"] }
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+dotenv = { version = "0.15.0", optional = true }
+
+[features]
+default = ["dotenv"]

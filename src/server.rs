@@ -41,7 +41,7 @@ impl Server {
   pub async fn run(self) -> Result<()> {
     let router = self.router();
 
-    let _ = axum::Server::bind(&self.bind_addr)
+    axum::Server::bind(&self.bind_addr)
       .serve(router.into_make_service())
       .await?;
 

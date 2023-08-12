@@ -55,13 +55,20 @@ impl Cli {
   pub async fn run(self) -> Result<()> {
     match &self.command {
       Command::Server { bind_addr } => self.run_server(*bind_addr).await,
-      Command::Query { query, opts } => self.run_query(query, opts),
+      Command::Query { query, opts } => self.run_query(query, opts).await,
       Command::Reindex => self.run_reindex().await,
     }
   }
 
-  pub fn run_query(&self, query: &String, opts: &QueryOpts) -> Result<()> {
-    let search = Search::new(&self.index_dir)?;
+  pub async fn wiki(&self) -> Result<Wiki> {
+    Wiki::new(&self.sqlite_path).await
+  }
+  pub async fn search(&self) -> Result<Search> {
+    Search::new(&self.index_dir)
+  }
+
+  pub async fn run_query(&self, query: &str, opts: &QueryOpts) -> Result<()> {
+    let search = self.search().await?;
 
     for mut entry in search.query(query, opts.count)? {
       entry
@@ -85,8 +92,8 @@ impl Cli {
   }
 
   pub async fn run_server(&self, bind_addr: SocketAddr) -> Result<()> {
-    let wiki = Wiki::new(&self.sqlite_path).await?;
-    let search = Search::new(&self.index_dir)?;
+    let wiki = self.wiki().await?;
+    let search = self.search().await?;
 
     let server = crate::server::Server::new(bind_addr, search, wiki);
     server.run().await

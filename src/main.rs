@@ -1,14 +1,13 @@
+mod cli;
 mod config;
 mod page;
 mod search;
 mod util;
 mod wiki;
 
-use std::collections::HashMap;
+use cli::Cli;
 
-use search::Search;
-
-use crate::{config::Config, util::Result, wiki::Wiki};
+use crate::{config::Config, util::Result};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
@@ -17,22 +16,8 @@ async fn main() -> Result<()> {
     index_dir: "/home/shou/tmp/index".into(),
   };
 
-  let mut wiki = Wiki::new(&config).await?;
-  let mut search = Search::new(&config)?;
-
-  let pages = wiki.list_pages().await?;
-  let page_store: HashMap<i64, _> = pages
-    .clone()
-    .into_iter()
-    .map(|page| (page.id, page))
-    .collect();
-
-  search.index_pages(pages.into_iter())?;
-  for (score, id) in search.query("truth")? {
-    let page = page_store.get(&id).unwrap();
-    println!("{}: {}", score, page.title);
-    println!("{}", page.text);
-  }
+  let cli: Cli = argh::from_env();
+  cli.run(&config).await?;
 
   Ok(())
 }

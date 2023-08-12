@@ -1,6 +1,6 @@
 use tantivy::{
   directory::MmapDirectory, schema::Schema, tokenizer::TextAnalyzer, Document,
-  Index, IndexWriter,
+  Index, IndexWriter, Snippet, SnippetGenerator,
 };
 use tantivy_jieba::JiebaTokenizer;
 
@@ -9,6 +9,15 @@ use crate::{config::Config, page::Page, util::Result};
 pub struct Search {
   schema: Schema,
   index: Index,
+}
+
+pub struct PageMatchEntry {
+  pub title_snippet: Snippet,
+  pub body_snippet: Snippet,
+  pub title: String,
+  pub body: String,
+  pub page_id: i64,
+  pub score: f32,
 }
 
 impl Search {
@@ -45,11 +54,17 @@ impl Search {
     Ok(())
   }
 
-  pub fn query(&self, query: &str) -> Result<Vec<(f32, i64)>> {
+  pub fn query(
+    &self,
+    query: &str,
+    count: usize,
+  ) -> Result<Vec<PageMatchEntry>> {
     use tantivy::collector::TopDocs;
     use tantivy::query::QueryParser;
 
     let id_field = self.schema.get_field("id").unwrap();
+    let title_field = self.schema.get_field("title").unwrap();
+    let text_field = self.schema.get_field("text").unwrap();
 
     let searcher = self.index.reader()?.searcher();
     println!("searching {} docs", searcher.num_docs());
@@ -59,16 +74,35 @@ impl Search {
       vec![self.schema.get_field("text").unwrap()],
     );
     let query = query_parser.parse_query(query)?;
-    let top_docs = searcher.search(&query, &TopDocs::with_limit(10))?;
+    let top_docs = searcher.search(&query, &TopDocs::with_limit(count))?;
 
-    top_docs
-      .into_iter()
-      .map(|(score, addr)| {
-        let doc = searcher.doc(addr)?;
-        let id = doc.get_first(id_field).unwrap().as_i64().unwrap();
-        Ok((score, id))
-      })
-      .collect()
+    let title_snippet_gen =
+      SnippetGenerator::create(&searcher, &query, title_field)?;
+    let mut text_snippet_gen =
+      SnippetGenerator::create(&searcher, &query, text_field)?;
+    text_snippet_gen.set_max_num_chars(100);
+
+    let mut entries = vec![];
+
+    for (score, addr) in top_docs {
+      let doc = searcher.doc(addr)?;
+      let id = doc.get_first(id_field).unwrap().as_i64().unwrap();
+      let title = doc.get_first(title_field).unwrap().as_text().unwrap();
+      let body = doc.get_first(text_field).unwrap().as_text().unwrap();
+      let title_snippet = title_snippet_gen.snippet_from_doc(&doc);
+      let body_snippet = text_snippet_gen.snippet_from_doc(&doc);
+
+      entries.push(PageMatchEntry {
+        title_snippet,
+        body_snippet,
+        title: title.to_string(),
+        body: body.to_string(),
+        page_id: id,
+        score,
+      });
+    }
+
+    Ok(entries)
   }
 
   fn make_doc(&self, page: Page) -> Result<Document> {
@@ -77,7 +111,7 @@ impl Search {
     let mut doc = Document::new();
     let f = |name| self.schema.get_field(name).unwrap();
 
-    doc.add_i64(f("id"), page.id as i64);
+    doc.add_i64(f("id"), page.id);
     doc.add_text(f("title"), page.title);
     doc.add_text(f("text"), page.text);
 

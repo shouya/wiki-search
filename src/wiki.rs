@@ -22,7 +22,7 @@ impl Wiki {
     const SQL: &str = concat!(
       "SELECT",
       "    page.page_id as id, ",
-      "    page.page_title as title, ",
+      "    replace(page.page_title, '_', ' ') as title, ",
       "    text.old_text as text, ",
       "    page.page_touched as page_touched, ",
       "    page.page_namespace as namespace ",

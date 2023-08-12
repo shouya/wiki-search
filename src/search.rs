@@ -53,23 +53,31 @@ impl Search {
     })
   }
 
-  pub fn index_page(&self, writer: &IndexWriter, page: Page) -> Result<()> {
+  pub fn reindex_pages(
+    &mut self,
+    pages: impl Iterator<Item = Page>,
+  ) -> Result<()> {
+    let mut writer = self.index.writer(128_000_000)?;
+    writer.delete_all_documents()?;
+    self.index_pages_with(&writer, pages)?;
+    writer.commit()?;
+    Ok(())
+  }
+
+  fn index_page_with(&self, writer: &IndexWriter, page: Page) -> Result<()> {
     writer.add_document(self.make_doc(page)?)?;
 
     Ok(())
   }
 
-  pub fn index_pages(
+  fn index_pages_with(
     &mut self,
+    writer: &IndexWriter,
     pages: impl Iterator<Item = Page>,
   ) -> Result<()> {
-    let mut writer = self.index.writer(128_000_000)?;
-
     for page in pages {
-      self.index_page(&writer, page)?;
+      self.index_page_with(&writer, page)?;
     }
-
-    writer.commit()?;
 
     Ok(())
   }

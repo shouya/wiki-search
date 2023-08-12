@@ -100,10 +100,7 @@ impl Cli {
   }
 
   pub async fn run_reindex(&self) -> Result<()> {
-    use std::{fs, time::Instant};
-
-    fs::remove_dir_all(&self.index_dir).ok();
-    fs::create_dir_all(&self.index_dir).ok();
+    use std::time::Instant;
 
     let mut wiki = Wiki::new(&self.sqlite_path).await?;
     let mut search = Search::new(&self.index_dir)?;
@@ -113,7 +110,7 @@ impl Cli {
     info!("Listed pages ({}) (spent {:?})", pages.len(), t.elapsed());
 
     let t = Instant::now();
-    search.index_pages(pages.into_iter())?;
+    search.reindex_pages(pages.into_iter())?;
     info!("Indexed pages (spent {:?})", t.elapsed());
 
     Ok(())

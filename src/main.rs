@@ -1,8 +1,12 @@
 mod config;
-mod index;
 mod page;
+mod search;
 mod util;
 mod wiki;
+
+use std::collections::HashMap;
+
+use search::Search;
 
 use crate::{config::Config, util::Result, wiki::Wiki};
 
@@ -10,23 +14,25 @@ use crate::{config::Config, util::Result, wiki::Wiki};
 async fn main() -> Result<()> {
   let config = Config {
     wiki_sqlite_file: "/home/shou/tmp/my_wiki.sqlite".into(),
-    tantivy_index_dir: "/home/shou/tmp/index".into(),
+    index_dir: "/home/shou/tmp/index".into(),
   };
 
   let mut wiki = Wiki::new(&config).await?;
+  let mut search = Search::new(&config)?;
+
   let pages = wiki.list_pages().await?;
+  let page_store: HashMap<i64, _> = pages
+    .clone()
+    .into_iter()
+    .map(|page| (page.id, page))
+    .collect();
 
-  let mut count = 0;
-
-  dbg!(pages.len());
-  for page in pages {
-    if let &Some(d) = page.title_date.as_ref() {
-      dbg!(page.title, d);
-      count += 1;
-    }
+  search.index_pages(pages.into_iter())?;
+  for (score, id) in search.query("truth")? {
+    let page = page_store.get(&id).unwrap();
+    println!("{}: {}", score, page.title);
+    println!("{}", page.text);
   }
-
-  dbg!(count);
 
   Ok(())
 }

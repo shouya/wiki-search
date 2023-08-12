@@ -7,6 +7,15 @@ pub enum Error {
 
   #[error("date parse error")]
   InvalidDate(String),
+
+  #[error("tantivy error: {0}")]
+  Tantivy(#[from] tantivy::TantivyError),
+
+  #[error("invalid query: {0}")]
+  InvalidQuery(#[from] tantivy::query::QueryParserError),
+
+  #[error("generic error: `{0}`")]
+  Generic(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

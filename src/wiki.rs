@@ -21,6 +21,7 @@ impl Wiki {
   pub async fn list_pages(&mut self) -> Result<Vec<Page>> {
     const SQL: &str = concat!(
       "SELECT",
+      "    page.page_id as id, ",
       "    page.page_title as title, ",
       "    text.old_text as text, ",
       "    page.page_touched as page_touched, ",

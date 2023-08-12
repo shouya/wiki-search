@@ -2,7 +2,7 @@ use chrono::NaiveDateTime;
 
 use crate::util::{Date, DateTime, Error};
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, derive_more::Display)]
 pub enum Namespace {
   Main,
   User,
@@ -22,10 +22,12 @@ pub enum Namespace {
   HelpTalk,
   ModuleTalk,
   Media,
+  #[display(fmt = "Other")]
   Other(i32),
 }
 
 #[derive(
+  Clone,
   Debug,
   PartialEq,
   derive_more::From,
@@ -36,6 +38,7 @@ pub enum Namespace {
 pub struct TitleDate(pub Option<Date>);
 
 #[derive(
+  Clone,
   Debug,
   derive_more::From,
   derive_more::Into,
@@ -44,8 +47,9 @@ pub struct TitleDate(pub Option<Date>);
 )]
 pub struct WikiTimestamp(pub DateTime);
 
-#[derive(sqlx::FromRow, Debug)]
+#[derive(Clone, Debug, sqlx::FromRow)]
 pub struct Page {
+  pub id: i64,
   pub title: String,
   pub text: String,
   #[sqlx(rename = "title", try_from = "String")]
@@ -123,7 +127,8 @@ impl TryFrom<String> for TitleDate {
 
       let Some(year) = parsed.year else { continue };
 
-      if !(1900..=2300).contains(&year) {
+      // range of nanosecond-precision unix timestamps in i64
+      if !(1678..=2262).contains(&year) {
         // this is almost definitely a mismatch
         continue;
       }
@@ -147,6 +152,20 @@ impl TryFrom<String> for WikiTimestamp {
     let date_time = NaiveDateTime::parse_from_str(&value, FORMAT)
       .map_err(|_e| Error::InvalidDate(value))?;
     Ok(WikiTimestamp(date_time.and_utc()))
+  }
+}
+
+impl TitleDate {
+  pub fn timestamp(&self) -> Option<i64> {
+    self
+      .0
+      .map(|date| date.and_hms_opt(0, 0, 0).unwrap().timestamp())
+  }
+}
+
+impl WikiTimestamp {
+  pub fn timestamp(&self) -> i64 {
+    self.0.timestamp()
   }
 }
 

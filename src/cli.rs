@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use argh::FromArgs;
 
 use crate::{config::Config, search::Search, util::Result, wiki::Wiki};
@@ -24,7 +26,11 @@ pub enum Subcommand {
 #[derive(FromArgs)]
 #[argh(subcommand, name = "server")]
 /// run the server
-pub struct Server {}
+pub struct Server {
+  /// bind address
+  #[argh(option, short = 'b', default = "\"127.0.0.1:3000\".parse().unwrap()")]
+  bind_addr: SocketAddr,
+}
 
 #[derive(FromArgs)]
 #[argh(subcommand, name = "query")]
@@ -51,16 +57,16 @@ pub struct Reindex {}
 impl Cli {
   pub async fn run(self, config: &Config) -> Result<()> {
     match self.command {
-      Subcommand::Server(_) => self.run_server(config).await,
-      Subcommand::Query(ref query) => self.run_query(query, config),
+      Subcommand::Server(ref opts) => self.run_server(opts, config).await,
+      Subcommand::Query(ref opts) => self.run_query(opts, config),
       Subcommand::Reindex(_) => self.run_reindex(config).await,
     }
   }
 
-  pub fn run_query(&self, query: &Query, config: &Config) -> Result<()> {
+  pub fn run_query(&self, opts: &Query, config: &Config) -> Result<()> {
     let search = Search::new(config)?;
 
-    for mut entry in search.query(&query.query, query.count)? {
+    for mut entry in search.query(&opts.query, opts.count)? {
       entry
         .text_snippet
         .set_snippet_prefix_postfix("\x1b[42;30m", "\x1b[m");
@@ -81,8 +87,12 @@ impl Cli {
     Ok(())
   }
 
-  pub async fn run_server(&self, _config: &Config) -> Result<()> {
-    todo!()
+  pub async fn run_server(&self, opts: &Server, config: &Config) -> Result<()> {
+    let wiki = Wiki::new(config).await?;
+    let search = Search::new(config)?;
+
+    let server = crate::server::Server::new(opts.bind_addr, search, wiki);
+    server.run().await
   }
 
   pub async fn run_reindex(&self, config: &Config) -> Result<()> {

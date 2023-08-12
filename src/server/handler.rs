@@ -16,9 +16,10 @@ mod index {
 
 mod search {
   use super::*;
+  use axum::extract::Query;
 
   #[derive(Deserialize)]
-  struct SearchRequest {
+  pub struct SearchRequest {
     q: String,
   }
 
@@ -37,6 +38,7 @@ mod search {
 
   #[axum::debug_handler]
   pub async fn search(
+    Query(_req): Query<SearchRequest>,
     Extension(_search): SearchE,
   ) -> Result<Json<SearchResponse>> {
     todo!()

@@ -62,7 +62,7 @@ impl Cli {
 
     for mut entry in search.query(&query.query, query.count)? {
       entry
-        .body_snippet
+        .text_snippet
         .set_snippet_prefix_postfix("\x1b[42;30m", "\x1b[m");
       entry
         .title_snippet
@@ -75,7 +75,7 @@ impl Cli {
       };
 
       println!("[\x1b[32m{:.2}\x1b[m] {}", entry.score, title);
-      println!("{}\n\n-------------\n", entry.body_snippet.to_html());
+      println!("{}\n\n-------------\n", entry.text_snippet.to_html());
     }
 
     Ok(())

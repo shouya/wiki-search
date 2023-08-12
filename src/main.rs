@@ -11,6 +11,8 @@ use crate::{config::Config, util::Result};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
+  tracing_subscriber::fmt::init();
+
   let config = Config {
     wiki_sqlite_file: "/home/shou/tmp/my_wiki.sqlite".into(),
     index_dir: "/home/shou/tmp/index".into(),

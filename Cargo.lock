@@ -2144,6 +2144,8 @@ dependencies = [
  "tantivy-jieba",
  "thiserror",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

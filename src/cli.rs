@@ -1,34 +1,27 @@
 use std::{net::SocketAddr, path::PathBuf};
 
-use clap::{Args, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 use tracing::info;
 
-use crate::{search::Search, util::Result, wiki::Wiki};
+use crate::{
+  search::{QueryOptions, Search},
+  util::Result,
+  wiki::Wiki,
+};
 
 #[derive(Parser)]
 /// command line interface
 pub struct Cli {
   /// path to mediawiki sqlite database
-  #[arg(short, long, env)]
+  #[arg(short('w'), long, env)]
   sqlite_path: PathBuf,
 
   /// path to search index
-  #[arg(short, long, env)]
+  #[arg(short('i'), long, env)]
   index_dir: PathBuf,
 
   #[command(subcommand)]
   command: Command,
-}
-
-#[derive(Args)]
-pub struct QueryOpts {
-  /// disable highlighting on matched terms
-  #[arg(short('c'), long, default_value_t = false)]
-  no_color: bool,
-
-  /// number of results to return
-  #[arg(short('n'), long, default_value_t = 10)]
-  count: usize,
 }
 
 #[derive(Subcommand)]
@@ -45,7 +38,7 @@ pub enum Command {
     query: String,
 
     #[command(flatten)]
-    opts: QueryOpts,
+    opts: QueryOptions,
   },
   /// re-index
   Reindex,
@@ -67,10 +60,14 @@ impl Cli {
     Search::new(&self.index_dir)
   }
 
-  pub async fn run_query(&self, query: &str, opts: &QueryOpts) -> Result<()> {
+  pub async fn run_query(
+    &self,
+    query: &str,
+    opts: &QueryOptions,
+  ) -> Result<()> {
     let search = self.search().await?;
 
-    for mut entry in search.query(query, opts.count)? {
+    for mut entry in search.query(query, opts)? {
       entry
         .text_snippet
         .set_snippet_prefix_postfix("\x1b[42;30m", "\x1b[m");

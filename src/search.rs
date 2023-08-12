@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use clap::Args;
 use tantivy::{
   directory::MmapDirectory,
   schema::{Field, Schema},
@@ -34,6 +35,39 @@ pub struct PageMatchEntry {
   pub text: String,
   pub page_id: i64,
   pub score: f32,
+}
+
+// I know putting the Cli options here is a bit leaky, but given that
+// the Cli query options and the Search query options are actually the
+// same concept, it makes sense to put them together.
+//
+// It would be the
+// best if I can specify the clap options in the Cli module.  But the
+// two piece of info is not easily separable.
+
+#[derive(Clone, Args)]
+pub struct QueryOptions {
+  /// offset of results
+  #[clap(short('s'), long)]
+  pub offset: Option<usize>,
+
+  /// number of results
+  #[clap(short('n'), long, default_value_t = 10)]
+  pub count: usize,
+
+  /// max length of snippet
+  #[clap(short('l'), long, default_value_t = 100)]
+  pub snippet_length: usize,
+}
+
+impl Default for QueryOptions {
+  fn default() -> Self {
+    QueryOptions {
+      offset: None,
+      count: 10,
+      snippet_length: 100,
+    }
+  }
 }
 
 impl Search {
@@ -85,7 +119,7 @@ impl Search {
   pub fn query(
     &self,
     query: &str,
-    count: usize,
+    options: &QueryOptions,
   ) -> Result<Vec<PageMatchEntry>> {
     use tantivy::collector::TopDocs;
     use tantivy::query::QueryParser;
@@ -99,13 +133,16 @@ impl Search {
     );
     let query = query_parser.parse_query(query)?;
 
-    let top_docs = searcher.search(&query, &TopDocs::with_limit(count))?;
+    let collector = TopDocs::with_limit(options.count)
+      .and_offset(options.offset.unwrap_or(0));
+
+    let top_docs = searcher.search(&query, &collector)?;
 
     let title_snippet_gen =
       SnippetGenerator::create(&searcher, &query, self.fields.title)?;
     let mut text_snippet_gen =
       SnippetGenerator::create(&searcher, &query, self.fields.text)?;
-    text_snippet_gen.set_max_num_chars(100);
+    text_snippet_gen.set_max_num_chars(options.snippet_length);
 
     let mut entries = vec![];
 
@@ -208,7 +245,13 @@ fn text_tokenizer() -> TextAnalyzer {
 #[cfg(test)]
 mod test {
   use tantivy::tokenizer::TextAnalyzer;
-  const LOJBAN_SAMPLE_TEXT: &str = "邏輯語（逻辑语：la .lojban.，英語：Lojban，/ˈloʒban/  ( 聆聽)），一種人工語言，是Loglan的後繼者，由邏輯語言群（Logical Language Group，LLG）在1987年開始發展而成[1]。";
+  const LOJBAN_SAMPLE_TEXT: &str = concat!(
+    "邏輯語（逻辑语：la .lojban.，",
+    "英語：Lojban，/ˈloʒban/  ( 聆聽)），",
+    "一種人工語言，是Loglan的後繼者，",
+    "由邏輯語言群（Logical Language Group，LLG）",
+    "在1987年開始發展而成[1]。"
+  );
 
   #[test]
   fn test_text_tokenizer() {

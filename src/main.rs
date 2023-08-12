@@ -2,6 +2,7 @@ mod cli;
 mod config;
 mod page;
 mod search;
+mod server;
 mod util;
 mod wiki;
 

@@ -14,6 +14,9 @@ pub enum Error {
   #[error("invalid query: {0}")]
   InvalidQuery(#[from] tantivy::query::QueryParserError),
 
+  #[error("hyper error: {0}")]
+  Hyper(#[from] hyper::Error),
+
   #[error("generic error: `{0}`")]
   Generic(String),
 }

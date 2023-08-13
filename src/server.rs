@@ -5,7 +5,7 @@ use std::{net::SocketAddr, sync::Arc};
 use axum::{
   http::StatusCode,
   response::{IntoResponse, Response},
-  routing::get,
+  routing::{get, post},
   Extension, Router,
 };
 use tokio::sync::{Mutex, RwLock};
@@ -52,6 +52,8 @@ impl Server {
     Router::new()
       .route("/", get(handler::index))
       .route("/search", get(handler::search))
+      .route("/reindex", post(handler::reindex))
+      // .route("/morelikethis", get(handler::morelikethis))
       .layer(Extension(self.search.clone()))
       .layer(Extension(self.wiki.clone()))
   }

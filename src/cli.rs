@@ -12,7 +12,7 @@ use crate::{
 #[derive(Parser)]
 /// command line interface
 pub struct Cli {
-  /// path to mediawiki sqlite database
+  /// path to MediaWiki SQLite database
   #[arg(short('w'), long, env)]
   sqlite_path: PathBuf,
 
@@ -68,21 +68,10 @@ impl Cli {
     let search = self.search().await?;
 
     for mut entry in search.query(query, opts)? {
-      entry
-        .text_snippet
-        .set_snippet_prefix_postfix("\x1b[42;30m", "\x1b[m");
-      entry
-        .title_snippet
-        .set_snippet_prefix_postfix("\x1b[42;30m", "\x1b[m");
+      entry.highlight("\x1b[42;30m", "\x1b[m");
 
-      let title = if entry.title_snippet.is_empty() {
-        entry.title
-      } else {
-        entry.title_snippet.to_html()
-      };
-
-      println!("[\x1b[32m{:.2}\x1b[m] {}", entry.score, title);
-      println!("{}\n\n-------------\n", entry.text_snippet.to_html());
+      println!("[\x1b[32m{:.2}\x1b[m] {}", entry.score, entry.title);
+      println!("{}\n\n-------------\n", entry.text);
     }
 
     Ok(())
@@ -107,7 +96,7 @@ impl Cli {
     info!("Listed pages ({}) (spent {:?})", pages.len(), t.elapsed());
 
     let t = Instant::now();
-    search.reindex_pages(pages.into_iter())?;
+    search.reindex_pages(pages)?;
     info!("Indexed pages (spent {:?})", t.elapsed());
 
     Ok(())

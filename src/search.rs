@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use clap::Args;
+use serde::Deserialize;
 use tantivy::{
   directory::MmapDirectory,
   schema::{Field, Schema},
@@ -29,23 +30,58 @@ pub struct Search {
 }
 
 pub struct PageMatchEntry {
-  pub title_snippet: Snippet,
-  pub text_snippet: Snippet,
   pub title: String,
   pub text: String,
+  title_snippet: Snippet,
+  text_snippet: Snippet,
   pub page_id: i64,
   pub score: f32,
 }
 
-// I know putting the Cli options here is a bit leaky, but given that
-// the Cli query options and the Search query options are actually the
-// same concept, it makes sense to put them together.
-//
-// It would be the
-// best if I can specify the clap options in the Cli module.  But the
-// two piece of info is not easily separable.
+impl PageMatchEntry {
+  #[rustfmt::skip]
+  pub fn highlight(&mut self, prefix: &str, suffix: &str) {
+    self.title_snippet.set_snippet_prefix_postfix(prefix, suffix);
+    self.text_snippet.set_snippet_prefix_postfix(prefix, suffix);
 
-#[derive(Clone, Args)]
+    let truncate = |s: &mut String, n: usize| {
+      let mut i = 0;
+      s.retain(|_| {
+        i += 1;
+        i <= n
+      });
+    };
+
+    if !self.title_snippet.is_empty() {
+      self.title = self.title_snippet.to_html();
+    } else {
+      truncate(&mut self.title, self.title_snippet.fragment().chars().count())
+    }
+
+    if !self.text_snippet.is_empty() {
+      self.text = self.title_snippet.to_html();
+    } else {
+      truncate(&mut self.text, self.text_snippet.fragment().chars().count())
+    }
+  }
+}
+
+// This same struct was used in three places:
+//
+// 1. Cli, requires derive(Args)
+// 2. Web handler (search query), requires derive(Deserialize)
+// 3. Here as a public search API
+//
+// I know putting the Cli options and deserialize here is a bit leaky,
+// but given that the Cli query options and the Search query options
+// are actually the same concept, it makes sense to put them together.
+//
+// It would be the best if I can specify the clap options in the Cli
+// module and the deserialize implementations in handler. They're
+// doable by manually implementing the traits, but it's a lot more
+// convenient to use the derive macros.
+
+#[derive(Clone, Args, Deserialize)]
 pub struct QueryOptions {
   /// offset of results
   #[clap(short('s'), long)]
@@ -89,7 +125,7 @@ impl Search {
 
   pub fn reindex_pages(
     &mut self,
-    pages: impl Iterator<Item = Page>,
+    pages: impl IntoIterator<Item = Page>,
   ) -> Result<()> {
     let mut writer = self.index.writer(128_000_000)?;
     writer.delete_all_documents()?;
@@ -107,10 +143,10 @@ impl Search {
   fn index_pages_with(
     &mut self,
     writer: &IndexWriter,
-    pages: impl Iterator<Item = Page>,
+    pages: impl IntoIterator<Item = Page>,
   ) -> Result<()> {
     for page in pages {
-      self.index_page_with(&writer, page)?;
+      self.index_page_with(writer, page)?;
     }
 
     Ok(())

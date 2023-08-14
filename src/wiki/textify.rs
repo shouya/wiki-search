@@ -1,7 +1,6 @@
 use parse_wiki_text::{
-  Configuration, DefinitionListItem, ListItem,
-  Node::{self, *},
-  TableCaption, TableCell, TableRow,
+  Configuration, DefinitionListItem, ListItem, Node, Parameter, TableCaption,
+  TableCell, TableRow,
 };
 
 trait Textify {
@@ -17,6 +16,16 @@ impl Textify for DefinitionListItem<'_> {
 impl Textify for ListItem<'_> {
   fn textify(self, source: &str, buffer: &mut String) {
     self.nodes.textify(source, buffer);
+  }
+}
+
+impl Textify for Parameter<'_> {
+  fn textify(self, source: &str, buffer: &mut String) {
+    self.name.into_iter().flatten().for_each(|node| {
+      node.textify(source, buffer);
+    });
+
+    self.value.textify(source, buffer);
   }
 }
 
@@ -80,6 +89,7 @@ where
 
 impl<'a> Textify for Node<'a> {
   fn textify(self, source: &str, buffer: &mut String) {
+    use Node::*;
     match self {
       Bold { end, start } => buffer.push_str(&source[start..end]),
       BoldItalic { end, start } => buffer.push_str(&source[start..end]),
@@ -111,8 +121,8 @@ impl<'a> Textify for Node<'a> {
       MagicWord { end, start } => buffer.push_str(&source[start..end]),
       OrderedList { items, .. } => items.textify(source, buffer),
       ParagraphBreak { .. } => buffer.push_str("\n\n"),
-      Parameter { .. } => todo!(),
-      Preformatted { .. } => todo!(),
+      Parameter { .. } => {}
+      Preformatted { .. } => {}
       Redirect { target, .. } => {
         buffer.push_str(&format!("REDIRECT: {}", target))
       }
@@ -122,7 +132,14 @@ impl<'a> Textify for Node<'a> {
         LineSep(rows).textify(source, buffer);
       }
       Tag { .. } => {}
-      Template { .. } => todo!(),
+      Template {
+        name, parameters, ..
+      } => {
+        buffer.push_str("{{");
+        name.textify(source, buffer);
+        SepBy("|", parameters).textify(source, buffer);
+        buffer.push_str("}}");
+      }
       Text { value, .. } => buffer.push_str(value),
       UnorderedList { items, .. } => LineSep(items).textify(source, buffer),
     }

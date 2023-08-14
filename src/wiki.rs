@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
 use sqlx::{Connection, SqliteConnection};
 
 use crate::{page::Page, util::Result};
@@ -40,10 +41,10 @@ impl Wiki {
       .fetch_all(&mut self.conn)
       .await?;
 
-    for page in &mut pages {
+    pages.par_iter_mut().for_each(|page| {
       // convert mediawiki to plain text
       page.text = textify::textify(&page.text);
-    }
+    });
 
     Ok(pages)
   }

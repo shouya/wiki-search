@@ -4,6 +4,8 @@ use sqlx::{Connection, SqliteConnection};
 
 use crate::{page::Page, util::Result};
 
+mod textify;
+
 pub struct Wiki {
   conn: SqliteConnection,
 }
@@ -34,9 +36,14 @@ impl Wiki {
       "LEFT JOIN text ON ltrim(content.content_address, 'tt:') = text.old_id "
     );
 
-    let pages = sqlx::query_as::<_, Page>(SQL)
+    let mut pages = sqlx::query_as::<_, Page>(SQL)
       .fetch_all(&mut self.conn)
       .await?;
+
+    for page in &mut pages {
+      // convert mediawiki to plain text
+      page.text = textify::textify(&page.text);
+    }
 
     Ok(pages)
   }

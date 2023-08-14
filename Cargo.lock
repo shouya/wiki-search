@@ -1279,6 +1279,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "parse_wiki_text"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd59a245c58efa02bd73c9462fd9d4c28952d650092c6bcba43b60b4707171dd"
+
+[[package]]
 name = "paste"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2448,6 +2454,7 @@ dependencies = [
  "futures-util",
  "http",
  "hyper",
+ "parse_wiki_text",
  "rusqlite",
  "serde",
  "sqlx",

@@ -67,11 +67,12 @@ impl Cli {
   ) -> Result<()> {
     let search = self.search().await?;
 
-    for mut entry in search.query(query, opts)? {
-      entry.highlight("\x1b[42;30m", "\x1b[m");
+    for entry in search.query(query, opts)? {
+      let title = entry.title.highlight("\x1b[42;30m", "\x1b[m");
+      let text = entry.text.highlight("\x1b[43;30m", "\x1b[m");
 
-      println!("[\x1b[32m{:.2}\x1b[m] {}", entry.score, entry.title);
-      println!("{}\n\n-------------\n", entry.text);
+      println!("[\x1b[32m{:.2}\x1b[m] {}", entry.score, title);
+      println!("{}\n\n-------------\n", text);
     }
 
     Ok(())

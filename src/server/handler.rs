@@ -77,10 +77,12 @@ mod search {
   ) -> Result<Json<SearchResponse>> {
     let guard = search.read().await;
     let mut results = vec![];
-    for mut entry in guard.query(&req.q, &req.options)? {
-      entry.highlight(&req.snippet_options.prefix, &req.snippet_options.suffix);
-      let title = entry.title;
-      let text = entry.text;
+    let prefix = req.snippet_options.prefix;
+    let suffix = req.snippet_options.suffix;
+
+    for entry in guard.query(&req.q, &req.options)? {
+      let title = entry.title.highlight(&prefix, &suffix);
+      let text = entry.text.highlight(&prefix, &suffix);
 
       let result = SearchResult { title, text };
       results.push(result);

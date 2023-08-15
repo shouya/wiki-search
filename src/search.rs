@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{ops::Range, path::Path};
 
 use clap::Args;
 use serde::Deserialize;
@@ -31,27 +31,40 @@ pub struct Search {
 
 pub struct PageMatchEntry {
   pub namespace: String,
-  pub title: String,
-  pub text: String,
-  title_snippet: Snippet,
-  text_snippet: Snippet,
+  pub title: MatchSnippet,
+  pub text: MatchSnippet,
   pub page_id: i64,
   pub score: f32,
 }
 
-impl PageMatchEntry {
-  #[rustfmt::skip]
-  pub fn highlight(&mut self, prefix: &str, suffix: &str) {
-    self.title_snippet.set_snippet_prefix_postfix(prefix, suffix);
-    self.text_snippet.set_snippet_prefix_postfix(prefix, suffix);
+#[derive(derive_more::Constructor, Debug)]
+pub struct MatchSnippet {
+  source: String,
+  snippet: Snippet,
+  max_length: usize,
+}
 
-    if !self.title_snippet.is_empty() {
-      self.title = self.title_snippet.to_html();
+impl MatchSnippet {
+  pub fn highlight(&self, prefix: &str, suffix: &str) -> String {
+    let highlights = collapse_overlapped_ranges(self.snippet.highlighted());
+    let fragment = self.snippet.fragment();
+
+    if highlights.is_empty() {
+      return self.source.chars().take(self.max_length).collect();
     }
 
-    if !self.text_snippet.is_empty() {
-      self.text = self.title_snippet.to_html();
+    let mut out = String::with_capacity(fragment.len() + 20);
+    let mut start_from = 0;
+
+    for item in highlights {
+      out.push_str(&fragment[start_from..item.start]);
+      out.push_str(prefix);
+      out.push_str(&fragment[item.clone()]);
+      out.push_str(suffix);
+      start_from = item.end;
     }
+    out.push_str(&fragment[start_from..fragment.len()]);
+    out
   }
 }
 
@@ -173,26 +186,25 @@ impl Search {
 
     for (score, addr) in top_docs {
       let doc = searcher.doc(addr)?;
-      let id = doc.get_first(self.fields.id).unwrap().as_i64().unwrap();
-      let namespace = doc
-        .get_first(self.fields.namespace)
-        .unwrap()
-        .as_text()
-        .unwrap()
-        .to_string();
+      let page_id = doc.get_first(self.fields.id).unwrap().as_i64().unwrap();
+      let namespace = text_field(&doc, self.fields.namespace);
 
-      let title = doc.get_first(self.fields.title).unwrap().as_text().unwrap();
-      let text = doc.get_first(self.fields.text).unwrap().as_text().unwrap();
-      let title_snippet = title_snippet_gen.snippet_from_doc(&doc);
-      let text_snippet = text_snippet_gen.snippet_from_doc(&doc);
+      let title = {
+        let source = text_field(&doc, self.fields.title);
+        let snippet = title_snippet_gen.snippet_from_doc(&doc);
+        MatchSnippet::new(source, snippet, options.snippet_length)
+      };
+      let text = {
+        let source = text_field(&doc, self.fields.text);
+        let snippet = text_snippet_gen.snippet_from_doc(&doc);
+        MatchSnippet::new(source, snippet, options.snippet_length)
+      };
 
       entries.push(PageMatchEntry {
         namespace,
-        title_snippet,
-        text_snippet,
-        title: title.to_string(),
-        text: text.to_string(),
-        page_id: id,
+        title,
+        text,
+        page_id,
         score,
       });
     }
@@ -370,4 +382,31 @@ mod test {
 
     tokens
   }
+}
+
+// assuming ranges are sorted
+fn collapse_overlapped_ranges(ranges: &[Range<usize>]) -> Vec<Range<usize>> {
+  let mut result = Vec::new();
+  let mut ranges_it = ranges.iter();
+
+  let mut current = match ranges_it.next() {
+    Some(range) => range.clone(),
+    None => return result,
+  };
+
+  for range in ranges {
+    if current.end > range.start {
+      current = current.start..std::cmp::max(current.end, range.end);
+    } else {
+      result.push(current);
+      current = range.clone();
+    }
+  }
+
+  result.push(current);
+  result
+}
+
+fn text_field(doc: &Document, field: Field) -> String {
+  doc.get_first(field).unwrap().as_text().unwrap().to_string()
 }

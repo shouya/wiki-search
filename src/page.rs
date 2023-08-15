@@ -88,10 +88,30 @@ impl From<i32> for Namespace {
 }
 
 impl Namespace {
-  pub fn to_prefix(self) -> &str {
+  pub fn to_prefix(self) -> &'static str {
     use Namespace::*;
 
-    match self {}
+    match self {
+      Main => "",
+      User => "User:",
+      File => "File:",
+      Template => "Template:",
+      Category => "Category:",
+      Special => "Special:",
+      MediaWiki => "MediaWiki:",
+      Help => "Help:",
+      Module => "Module:",
+      MainTalk => "Talk:",
+      UserTalk => "User_talk:",
+      FileTalk => "File_talk:",
+      TemplateTalk => "Template_talk:",
+      CategoryTalk => "Category_talk:",
+      MediaWikiTalk => "MediaWiki_talk:",
+      HelpTalk => "Help_talk:",
+      ModuleTalk => "Module_talk:",
+      Media => "Media:",
+      Other(_) => "Unknown",
+    }
   }
 }
 
@@ -173,6 +193,12 @@ impl TitleDate {
 impl WikiTimestamp {
   pub fn timestamp(&self) -> i64 {
     self.0.timestamp()
+  }
+}
+
+impl Page {
+  pub fn to_url(&self, base: &str) -> String {
+    format!("{}{}{}", base, self.namespace.to_prefix(), self.title)
   }
 }
 

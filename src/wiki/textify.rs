@@ -21,9 +21,10 @@ impl Textify for ListItem<'_> {
 
 impl Textify for Parameter<'_> {
   fn textify(self, source: &str, buffer: &mut String) {
-    self.name.into_iter().flatten().for_each(|node| {
-      node.textify(source, buffer);
-    });
+    if let Some(name) = self.name {
+      name.textify(source, buffer);
+      buffer.push('=');
+    };
 
     self.value.textify(source, buffer);
   }
@@ -36,7 +37,6 @@ where
   fn textify(self, source: &str, buffer: &mut String) {
     for val in self {
       val.textify(source, buffer);
-      buffer.push(' ');
     }
   }
 }
@@ -116,7 +116,7 @@ impl<'a> Textify for Node<'a> {
       Italic { end, start } => buffer.push_str(&source[start..end]),
       Link { target, text, .. } => {
         text.textify(source, buffer);
-        buffer.push_str(&format!(" ({target})"));
+        buffer.push_str(&format!("({target})"));
       }
       MagicWord { end, start } => buffer.push_str(&source[start..end]),
       OrderedList { items, .. } => items.textify(source, buffer),
@@ -137,8 +137,13 @@ impl<'a> Textify for Node<'a> {
       } => {
         buffer.push_str("{{");
         name.textify(source, buffer);
-        SepBy("|", parameters).textify(source, buffer);
-        buffer.push_str("}}");
+        if parameters.is_empty() {
+          buffer.push_str("}}");
+        } else {
+          buffer.push('|');
+          SepBy("|", parameters).textify(source, buffer);
+          buffer.push_str("}}");
+        }
       }
       Text { value, .. } => buffer.push_str(value),
       UnorderedList { items, .. } => LineSep(items).textify(source, buffer),
@@ -151,6 +156,27 @@ pub fn textify(source: &str) -> String {
   let parser_output = parser_config.parse(source);
 
   let mut buffer = String::new();
-  LineSep(parser_output.nodes).textify(source, &mut buffer);
+  parser_output.nodes.textify(source, &mut buffer);
   buffer
+}
+
+#[cfg(test)]
+mod test {
+  use super::*;
+
+  #[test]
+  fn test_textify() {
+    assert_textify("a&quot;b", "a\"b");
+    assert_textify("{{a|b=c|d=e}}", "{{a|b=c|d=e}}");
+    assert_textify("{{a|b|c}}", "{{a|b|c}}");
+    assert_textify("''hello''", "''hello''");
+    assert_textify("'''hello'''", "'''hello'''");
+    assert_textify("'''''hello'''''", "'''''hello'''''");
+    assert_textify("'''''hello'''''", "'''''hello'''''");
+  }
+
+  fn assert_textify(source: &str, expected: &str) {
+    let actual = textify(source);
+    assert_eq!(actual, expected);
+  }
 }

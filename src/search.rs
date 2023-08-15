@@ -30,6 +30,7 @@ pub struct Search {
 }
 
 pub struct PageMatchEntry {
+  pub namespace: String,
   pub title: String,
   pub text: String,
   title_snippet: Snippet,
@@ -44,24 +45,12 @@ impl PageMatchEntry {
     self.title_snippet.set_snippet_prefix_postfix(prefix, suffix);
     self.text_snippet.set_snippet_prefix_postfix(prefix, suffix);
 
-    let truncate = |s: &mut String, n: usize| {
-      let mut i = 0;
-      s.retain(|_| {
-        i += 1;
-        i <= n
-      });
-    };
-
     if !self.title_snippet.is_empty() {
       self.title = self.title_snippet.to_html();
-    } else {
-      truncate(&mut self.title, self.title_snippet.fragment().chars().count())
     }
 
     if !self.text_snippet.is_empty() {
       self.text = self.title_snippet.to_html();
-    } else {
-      truncate(&mut self.text, self.text_snippet.fragment().chars().count())
     }
   }
 }
@@ -185,12 +174,20 @@ impl Search {
     for (score, addr) in top_docs {
       let doc = searcher.doc(addr)?;
       let id = doc.get_first(self.fields.id).unwrap().as_i64().unwrap();
+      let namespace = doc
+        .get_first(self.fields.namespace)
+        .unwrap()
+        .as_text()
+        .unwrap()
+        .to_string();
+
       let title = doc.get_first(self.fields.title).unwrap().as_text().unwrap();
       let text = doc.get_first(self.fields.text).unwrap().as_text().unwrap();
       let title_snippet = title_snippet_gen.snippet_from_doc(&doc);
       let text_snippet = text_snippet_gen.snippet_from_doc(&doc);
 
       entries.push(PageMatchEntry {
+        namespace,
         title_snippet,
         text_snippet,
         title: title.to_string(),

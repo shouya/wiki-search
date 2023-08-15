@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use rayon::prelude::{IntoParallelRefMutIterator, ParallelIterator};
+use futures_util::StreamExt;
 use sqlx::{Connection, SqliteConnection};
 
 use crate::{page::Page, util::Result};
@@ -37,14 +37,17 @@ impl Wiki {
       "LEFT JOIN text ON ltrim(content.content_address, 'tt:') = text.old_id "
     );
 
-    let mut pages = sqlx::query_as::<_, Page>(SQL)
-      .fetch_all(&mut self.conn)
-      .await?;
+    let mut pages = vec![];
+    let mut stream = sqlx::query_as::<_, Page>(SQL).fetch(&mut self.conn);
 
-    pages.par_iter_mut().for_each(|page| {
-      // convert mediawiki to plain text
+    while let Some(Ok(mut page)) = stream.next().await {
+      if page.text.trim().is_empty() {
+        continue;
+      }
+
       page.text = textify::textify(&page.text);
-    });
+      pages.push(page);
+    }
 
     Ok(pages)
   }

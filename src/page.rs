@@ -22,7 +22,6 @@ pub enum Namespace {
   HelpTalk,
   ModuleTalk,
   Media,
-  #[display(fmt = "Other")]
   Other(i32),
 }
 
@@ -83,8 +82,16 @@ impl From<i32> for Namespace {
       829 => Namespace::ModuleTalk,
       -1 => Namespace::Special,
       -2 => Namespace::Media,
-      _ => Namespace::Other(value),
+      i => Namespace::Other(i),
     }
+  }
+}
+
+impl Namespace {
+  pub fn to_prefix(self) -> &str {
+    use Namespace::*;
+
+    match self {}
   }
 }
 

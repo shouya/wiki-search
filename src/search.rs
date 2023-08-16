@@ -94,7 +94,7 @@ pub struct QueryOptions {
   pub count: usize,
 
   /// max length of snippet
-  #[clap(short('l'), long, default_value_t = 100)]
+  #[clap(short('l'), long, default_value_t = 400)]
   pub snippet_length: usize,
 }
 

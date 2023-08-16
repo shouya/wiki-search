@@ -99,12 +99,9 @@ impl<'a> Textify for Node<'a> {
       DefinitionList { items, .. } => items.textify(source, buffer),
       EndTag { .. } => {}
       ExternalLink { nodes, .. } => nodes.textify(source, buffer),
-      Heading {
-        end, nodes, start, ..
-      } => {
+      Heading { start, end, .. } => {
         buffer.push_str(&source[start..end]);
         buffer.push('\n');
-        nodes.textify(source, buffer);
       }
       HorizontalDivider { .. } => {
         buffer.push_str("----------");
@@ -173,6 +170,10 @@ mod test {
     assert_textify("'''hello'''", "'''hello'''");
     assert_textify("'''''hello'''''", "'''''hello'''''");
     assert_textify("'''''hello'''''", "'''''hello'''''");
+
+    // bug: there is no newline between b and c
+    // assert_textify("= a =\nb\n\n= c =\nd", "= a =\nb= c =\nd");
+    assert_textify("= a =\nb\n\n= c =\nd", "= a =\nb\n= c =\nd");
   }
 
   fn assert_textify(source: &str, expected: &str) {

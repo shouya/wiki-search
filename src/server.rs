@@ -1,3 +1,5 @@
+mod api;
+mod front;
 mod handler;
 
 use std::{net::SocketAddr, sync::Arc};
@@ -5,11 +7,10 @@ use std::{net::SocketAddr, sync::Arc};
 use axum::{
   http::StatusCode,
   response::{IntoResponse, Response},
-  routing::{get, post},
   Extension, Router,
 };
 use tokio::sync::{Mutex, RwLock};
-use tracing::warn;
+use tracing::{info, warn};
 
 use crate::{
   search::Search,
@@ -26,6 +27,12 @@ pub struct Server {
 type SearchE = Extension<Arc<RwLock<Search>>>;
 type WikiE = Extension<Arc<Mutex<Wiki>>>;
 
+#[derive(Clone, Debug)]
+pub struct UrlBase(Arc<String>);
+
+#[derive(Clone, Debug)]
+pub struct WikiBase(Arc<String>);
+
 impl Server {
   pub fn new(bind_addr: SocketAddr, search: Search, wiki: Wiki) -> Self {
     let search = Arc::new(RwLock::new(search));
@@ -41,6 +48,8 @@ impl Server {
   pub async fn run(self) -> Result<()> {
     let router = self.router();
 
+    info!("Listening on {:?}", self.bind_addr);
+
     axum::Server::bind(&self.bind_addr)
       .serve(router.into_make_service())
       .await?;
@@ -50,10 +59,8 @@ impl Server {
 
   fn router(&self) -> Router {
     Router::new()
-      .route("/", get(handler::index))
-      .route("/search", get(handler::search))
-      .route("/reindex", post(handler::reindex))
-      // .route("/morelikethis", get(handler::morelikethis))
+      .nest("/api", api::router())
+      .merge(front::router())
       .layer(Extension(self.search.clone()))
       .layer(Extension(self.wiki.clone()))
   }

@@ -7,6 +7,8 @@ use axum::{
   Extension, Router,
 };
 
+use super::{SearchRef, WikiRef};
+
 #[derive(Clone, derive_more::Deref)]
 pub struct LiveViewPool(dioxus_liveview::LiveViewPool);
 
@@ -25,7 +27,6 @@ pub async fn index(
 ) -> impl IntoResponse {
   let mut base = format!("{host}{uri}");
   base.truncate(base.rfind('/').unwrap_or(base.len()));
-  dbg!(&base);
 
   let glue = dioxus_liveview::interpreter_glue(&format!("ws://{base}/ws"));
   let bytes = StaticAsset::get("index.html").unwrap().data;
@@ -36,12 +37,18 @@ pub async fn index(
 
 pub async fn websocket(
   Extension(view): Extension<LiveViewPool>,
+  Extension(wiki): Extension<WikiRef>,
+  Extension(search): Extension<SearchRef>,
   ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
   ws.on_upgrade(move |socket| async move {
-    let _ = view
-      .launch(dioxus_liveview::axum_socket(socket), ui::app)
-      .await;
+    let socket = dioxus_liveview::axum_socket(socket);
+    let props = ui::AppProps {
+      wiki,
+      search,
+      tag: Default::default(),
+    };
+    let _ = view.launch_with_props(socket, ui::App, props).await;
   })
 }
 

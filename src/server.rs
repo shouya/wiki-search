@@ -24,8 +24,8 @@ pub struct Server {
   wiki: Arc<Mutex<Wiki>>,
 }
 
-type SearchE = Extension<Arc<RwLock<Search>>>;
-type WikiE = Extension<Arc<Mutex<Wiki>>>;
+type SearchRef = Arc<RwLock<Search>>;
+type WikiRef = Arc<Mutex<Wiki>>;
 
 #[derive(Clone, Debug)]
 pub struct UrlBase(Arc<String>);

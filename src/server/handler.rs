@@ -19,8 +19,8 @@ mod reindex {
   use super::*;
 
   pub async fn reindex(
-    Extension(search): SearchE,
-    Extension(wiki): WikiE,
+    Extension(search): Extension<SearchRef>,
+    Extension(wiki): Extension<WikiRef>,
   ) -> Result<()> {
     let pages = wiki.lock().await.list_pages().await?;
     search.write().await.reindex_pages(pages)?;
@@ -73,7 +73,7 @@ mod search {
 
   pub async fn search(
     Query(req): Query<SearchRequest>,
-    Extension(search): SearchE,
+    Extension(search): Extension<SearchRef>,
   ) -> Result<Json<SearchResponse>> {
     let guard = search.read().await;
     let mut results = vec![];

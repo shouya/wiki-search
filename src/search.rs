@@ -29,6 +29,7 @@ pub struct Search {
   index: Index,
 }
 
+#[derive(Debug)]
 pub struct PageMatchEntry {
   pub namespace: String,
   pub title: MatchSnippet,

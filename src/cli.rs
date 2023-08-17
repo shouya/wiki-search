@@ -21,13 +21,13 @@ pub struct Cli {
   index_dir: PathBuf,
 
   #[command(subcommand)]
-  command: Command,
+  command: Option<Command>,
 }
 
 #[derive(Subcommand)]
 /// subcommands
 pub enum Command {
-  /// run the server
+  /// run the server (default subcommand)
   Server {
     #[arg(short, long, default_value = "127.0.0.1:3000")]
     bind_addr: SocketAddr,
@@ -47,9 +47,14 @@ pub enum Command {
 impl Cli {
   pub async fn run(self) -> Result<()> {
     match &self.command {
-      Command::Server { bind_addr } => self.run_server(*bind_addr).await,
-      Command::Query { query, opts } => self.run_query(query, opts).await,
-      Command::Reindex => self.run_reindex().await,
+      None => {
+        self
+          .run_server(SocketAddr::from(([127, 0, 0, 1], 3000)))
+          .await
+      }
+      Some(Command::Server { bind_addr }) => self.run_server(*bind_addr).await,
+      Some(Command::Query { query, opts }) => self.run_query(query, opts).await,
+      Some(Command::Reindex) => self.run_reindex().await,
     }
   }
 

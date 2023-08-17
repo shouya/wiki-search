@@ -80,7 +80,9 @@ mod search {
     let prefix = req.snippet_options.prefix;
     let suffix = req.snippet_options.suffix;
 
-    for entry in guard.query(&req.q, &req.options)? {
+    let result = guard.query(&req.q, &req.options)?;
+
+    for entry in result.entries {
       let title = entry.title.highlight(&prefix, &suffix);
       let text = entry.text.highlight(&prefix, &suffix);
 

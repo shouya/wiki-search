@@ -3,13 +3,15 @@ use std::{ops::Range, path::Path};
 use clap::Args;
 use serde::Deserialize;
 use tantivy::{
+  collector::MultiCollector,
   directory::MmapDirectory,
+  query::Query,
   schema::{Field, Schema},
   tokenizer::TextAnalyzer,
-  Document, Index, IndexWriter, Snippet, SnippetGenerator,
+  DocAddress, Document, Index, IndexWriter, Searcher, Snippet,
+  SnippetGenerator,
 };
 use tantivy_jieba::JiebaTokenizer;
-use tracing::debug;
 
 use crate::{page::Page, util::Result};
 
@@ -27,6 +29,14 @@ pub struct Search {
   schema: Schema,
   fields: Fields,
   index: Index,
+}
+
+#[derive(Debug)]
+pub struct PageMatchResult {
+  pub entries: Vec<PageMatchEntry>,
+  pub new_offset: Option<usize>,
+  pub total_records: usize,
+  pub elapsed: std::time::Duration,
 }
 
 #[derive(Debug)]
@@ -155,36 +165,51 @@ impl Search {
     Ok(())
   }
 
-  pub fn query(
-    &self,
-    query: &str,
-    options: &QueryOptions,
-  ) -> Result<Vec<PageMatchEntry>> {
-    use tantivy::collector::TopDocs;
+  fn parse_query(&self, query: &str) -> Result<Box<dyn Query>> {
     use tantivy::query::QueryParser;
-
-    let searcher = self.index.reader()?.searcher();
-    debug!("searching {} docs", searcher.num_docs());
-
     let query_parser = QueryParser::for_index(
       &self.index,
       vec![self.fields.title, self.fields.text],
     );
-    let query = query_parser.parse_query(query)?;
 
-    let collector = TopDocs::with_limit(options.count)
-      .and_offset(options.offset.unwrap_or(0));
+    Ok(query_parser.parse_query(query)?)
+  }
 
-    let top_docs = searcher.search(&query, &collector)?;
+  fn search(
+    &self,
+    searcher: &mut Searcher,
+    options: &QueryOptions,
+    query: &impl Query,
+  ) -> Result<(usize, Vec<(f32, DocAddress)>)> {
+    use tantivy::collector::{Count, TopDocs};
+    let mut collector = MultiCollector::new();
+    let top_docs_handle = collector.add_collector(
+      TopDocs::with_limit(options.count)
+        .and_offset(options.offset.unwrap_or(0)),
+    );
+    let total_records_handle = collector.add_collector(Count);
 
+    let mut fruits = searcher.search(query, &collector)?;
+    let top_docs = top_docs_handle.extract(&mut fruits);
+    let total_records = total_records_handle.extract(&mut fruits);
+
+    Ok((total_records, top_docs))
+  }
+
+  fn generate_docs(
+    &self,
+    searcher: &mut Searcher,
+    options: &QueryOptions,
+    query: &impl Query,
+    top_docs: Vec<(f32, DocAddress)>,
+  ) -> Result<Vec<PageMatchEntry>> {
     let title_snippet_gen =
-      SnippetGenerator::create(&searcher, &query, self.fields.title)?;
+      SnippetGenerator::create(searcher, query, self.fields.title)?;
     let mut text_snippet_gen =
-      SnippetGenerator::create(&searcher, &query, self.fields.text)?;
+      SnippetGenerator::create(searcher, query, self.fields.text)?;
     text_snippet_gen.set_max_num_chars(options.snippet_length);
 
     let mut entries = vec![];
-
     for (score, addr) in top_docs {
       let doc = searcher.doc(addr)?;
       let page_id = doc.get_first(self.fields.id).unwrap().as_i64().unwrap();
@@ -211,6 +236,35 @@ impl Search {
     }
 
     Ok(entries)
+  }
+
+  pub fn query(
+    &self,
+    query: &str,
+    options: &QueryOptions,
+  ) -> Result<PageMatchResult> {
+    let start = std::time::Instant::now();
+    let mut searcher = self.index.reader()?.searcher();
+
+    let query = self.parse_query(query)?;
+    let (total_records, top_docs) =
+      self.search(&mut searcher, options, &query)?;
+    let entries =
+      self.generate_docs(&mut searcher, options, &query, top_docs)?;
+    let new_offset = options.offset.unwrap_or(0) + entries.len();
+    let new_offset = if new_offset < total_records {
+      Some(new_offset)
+    } else {
+      None
+    };
+
+    let elapsed = start.elapsed();
+    Ok(PageMatchResult {
+      total_records,
+      new_offset,
+      entries,
+      elapsed,
+    })
   }
 
   fn make_doc(&self, page: Page) -> Result<Document> {

@@ -81,20 +81,17 @@ fn SearchResult(cx: Scope, query: UseState<String>) -> Element {
   let search = use_shared_state::<SearchRef>(cx).unwrap().to_owned();
 
   let future = use_future(cx, query.get(), |query| async move {
-    let start = std::time::Instant::now();
     let query_options = QueryOptions::default();
     let search_guard = search.read();
     let search = search_guard.read().await;
-    search
-      .query(&query, &query_options)
-      .map(|r| (r, start.elapsed()))
+    search.query(&query, &query_options)
   });
 
   render! {
     div {
       match future.value() {
-        Some(Ok((_results, elapsed))) => {
-          rsx! { "Query: {query.get()} (elapsed: {elapsed:?})" }
+        Some(Ok(result)) => {
+          rsx! { "Query: {query.get()} ({result.total_records} results) (elapsed: {result.elapsed:?})" }
         }
         _ => {
           rsx! { "Query: {query.get()}" }
@@ -103,8 +100,8 @@ fn SearchResult(cx: Scope, query: UseState<String>) -> Element {
     },
     pre {
       match future.value() {
-        Some(Ok((results, _))) => {
-          rsx! { Rendered(results) }
+        Some(Ok(result)) => {
+          rsx! { Rendered(&result.entries) }
         }
         Some(Err(err)) => {
           rsx! { "Error: {err}" }

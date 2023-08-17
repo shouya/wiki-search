@@ -72,7 +72,8 @@ impl Cli {
   ) -> Result<()> {
     let search = self.search().await?;
 
-    for entry in search.query(query, opts)? {
+    let result = search.query(query, opts)?;
+    for entry in result.entries {
       let title = entry.title.highlight("\x1b[42;30m", "\x1b[m");
       let text = entry.text.highlight("\x1b[43;30m", "\x1b[m");
 

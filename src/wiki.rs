@@ -9,18 +9,26 @@ mod textify;
 
 pub struct Wiki {
   conn: SqliteConnection,
+  wiki_base: String,
 }
 
 impl Wiki {
-  pub async fn new(sqlite_path: &Path) -> Result<Self> {
+  pub async fn new(
+    sqlite_path: &Path,
+    url_base: impl Into<String>,
+  ) -> Result<Self> {
     let options = sqlx::sqlite::SqliteConnectOptions::new()
       .filename(sqlite_path)
       .read_only(true)
       .immutable(true);
 
     let conn = SqliteConnection::connect_with(&options).await?;
+    let url_base = url_base.into();
 
-    Ok(Self { conn })
+    Ok(Self {
+      conn,
+      wiki_base: url_base,
+    })
   }
 
   pub async fn list_pages(&mut self) -> Result<Vec<Page>> {
@@ -44,6 +52,8 @@ impl Wiki {
       if page.text.trim().is_empty() {
         continue;
       }
+
+      page.fill_url(&self.wiki_base);
 
       page.text = textify::textify(&page.text);
       pages.push(page);

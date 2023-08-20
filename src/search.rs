@@ -22,6 +22,7 @@ pub struct Fields {
   title_date: Field,
   page_touched: Field,
   namespace: Field,
+  url: Field,
 }
 
 pub struct Search {
@@ -44,6 +45,7 @@ pub struct PageMatchEntry {
   pub namespace: String,
   pub title: MatchSnippet,
   pub text: MatchSnippet,
+  pub url: String,
   pub page_id: i64,
   pub score: f32,
 }
@@ -225,11 +227,13 @@ impl Search {
         let snippet = text_snippet_gen.snippet_from_doc(&doc);
         MatchSnippet::new(source, snippet, options.snippet_length)
       };
+      let url = text_field(&doc, self.fields.url);
 
       entries.push(PageMatchEntry {
         namespace,
         title,
         text,
+        url,
         page_id,
         score,
       });
@@ -276,6 +280,7 @@ impl Search {
     doc.add_i64(f.id, page.id);
     doc.add_text(f.title, page.title);
     doc.add_text(f.text, page.text);
+    doc.add_text(f.url, page.url);
 
     if let Some(title_date) = page.title_date.timestamp() {
       let tantivy_date = DateTime::from_timestamp_secs(title_date);
@@ -291,6 +296,7 @@ impl Search {
   }
 }
 
+#[rustfmt::skip]
 fn build_schema() -> (Fields, Schema) {
   use tantivy::schema::*;
 
@@ -304,13 +310,12 @@ fn build_schema() -> (Fields, Schema) {
     );
 
   let id = schema_builder.add_i64_field("id", STORED | FAST);
-  let title =
-    schema_builder.add_text_field("title", text_index_options.clone());
+  let title = schema_builder.add_text_field("title", text_index_options.clone());
   let text = schema_builder.add_text_field("text", text_index_options);
   let title_date = schema_builder.add_date_field("title_date", STORED | FAST);
-  let page_touched =
-    schema_builder.add_date_field("page_touched", STORED | FAST);
+  let page_touched = schema_builder.add_date_field("page_touched", STORED | FAST);
   let namespace = schema_builder.add_text_field("namespace", STORED | STRING);
+  let url = schema_builder.add_text_field("url", STORED | STRING);
 
   let schema = schema_builder.build();
 
@@ -321,6 +326,7 @@ fn build_schema() -> (Fields, Schema) {
     title_date,
     page_touched,
     namespace,
+    url,
   };
 
   (fields, schema)

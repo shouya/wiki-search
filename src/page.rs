@@ -57,6 +57,8 @@ pub struct Page {
   pub page_touched: WikiTimestamp,
   #[sqlx(try_from = "i32")]
   pub namespace: Namespace,
+  #[sqlx(default)]
+  pub url: String,
 }
 
 impl From<i32> for Namespace {
@@ -199,6 +201,10 @@ impl WikiTimestamp {
 impl Page {
   pub fn to_url(&self, base: &str) -> String {
     format!("{}{}{}", base, self.namespace.to_prefix(), self.title)
+  }
+
+  pub fn fill_url(&mut self, base: &str) {
+    self.url = self.to_url(base);
   }
 }
 

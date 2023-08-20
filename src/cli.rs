@@ -20,6 +20,10 @@ pub struct Cli {
   #[arg(short('i'), long, env)]
   index_dir: PathBuf,
 
+  /// base prefix to wiki site
+  #[arg(short('b'), long, env)]
+  wiki_base: String,
+
   #[command(subcommand)]
   command: Option<Command>,
 }
@@ -59,7 +63,7 @@ impl Cli {
   }
 
   pub async fn wiki(&self) -> Result<Wiki> {
-    Wiki::new(&self.sqlite_path).await
+    Wiki::new(&self.sqlite_path, &self.wiki_base).await
   }
   pub async fn search(&self) -> Result<Search> {
     Search::new(&self.index_dir)
@@ -95,8 +99,12 @@ impl Cli {
   pub async fn run_reindex(&self) -> Result<()> {
     use std::time::Instant;
 
-    let mut wiki = Wiki::new(&self.sqlite_path).await?;
-    let mut search = Search::new(&self.index_dir)?;
+    if !self.index_dir.exists() {
+      let _ = std::fs::create_dir_all(&self.index_dir);
+    }
+
+    let mut wiki = self.wiki().await?;
+    let mut search = self.search().await?;
 
     let t = Instant::now();
     let pages = wiki.list_pages().await?;

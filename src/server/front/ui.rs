@@ -67,12 +67,14 @@ impl<'a, 'b> IntoDynNode<'a> for Rendered<&'b Vec<PageMatchEntry>> {
           rsx! {
             div {
               h3 {
+                style: "font-weight: normal;",
                 a {
                   href: "{entry.url}",
                   dangerous_inner_html: "{title}"
                 }
               }
               p {
+                style: "max-width: 40vw;",
                 dangerous_inner_html: "{text}"
               }
             }
@@ -89,7 +91,10 @@ fn SearchResult(cx: Scope, query: UseState<String>) -> Element {
   let search = use_shared_state::<SearchRef>(cx).unwrap().to_owned();
 
   let future = use_future(cx, query.get(), |query| async move {
-    let query_options = QueryOptions::default();
+    let query_options = QueryOptions {
+      snippet_length: 400,
+      ..Default::default()
+    };
     let search_guard = search.read();
     let search = search_guard.read().await;
     search.query(&query, &query_options)
@@ -106,7 +111,7 @@ fn SearchResult(cx: Scope, query: UseState<String>) -> Element {
         }
       }
     },
-    pre {
+    div {
       match future.value() {
         Some(Ok(result)) => {
           rsx! { Rendered(&result.entries) }

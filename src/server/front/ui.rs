@@ -58,18 +58,26 @@ impl<'a, 'b> IntoDynNode<'a> for Rendered<&'b Vec<PageMatchEntry>> {
     self,
     cx: &'a dioxus::prelude::ScopeState,
   ) -> dioxus::core::DynamicNode<'a> {
-    let mut result = String::new();
-    for entry in self.0.iter() {
-      let title = entry.title.highlight("<b>", "</b>");
-      let text = entry.text.highlight("<b>", "</b>");
-
-      result.push_str(&format!("[{:.2}] {}\n", entry.score, title));
-      result.push_str(&format!("{}\n\n-------------\n\n", text));
-    }
-
     rsx! {
-      pre {
-        dangerous_inner_html: "{result}"
+      for entry in self.0.iter() {
+        {
+          let title = entry.title.highlight("<b>", "</b>");
+          let text = entry.text.highlight("<b>", "</b>");
+
+          rsx! {
+            div {
+              h3 {
+                a {
+                  href: "{entry.url}",
+                  dangerous_inner_html: "{title}"
+                }
+              }
+              p {
+                dangerous_inner_html: "{text}"
+              }
+            }
+          }
+        }
       }
     }
     .into_vnode(cx)

@@ -3,17 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use super::*;
 
-pub use index::index;
 pub use reindex::reindex;
 pub use search::search;
-
-mod index {
-  // use super::*;
-
-  pub async fn index() -> String {
-    "Hello, World!".to_string()
-  }
-}
 
 mod reindex {
   use super::*;

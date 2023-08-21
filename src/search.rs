@@ -169,10 +169,13 @@ impl Search {
 
   fn parse_query(&self, query: &str) -> Result<Box<dyn Query>> {
     use tantivy::query::QueryParser;
-    let query_parser = QueryParser::for_index(
+    let mut query_parser = QueryParser::for_index(
       &self.index,
       vec![self.fields.title, self.fields.text],
     );
+
+    query_parser.set_field_fuzzy(self.fields.title, true, 0, true);
+    query_parser.set_field_fuzzy(self.fields.text, true, 0, true);
 
     Ok(query_parser.parse_query(query)?)
   }

@@ -145,21 +145,21 @@ fn SearchResult(
   date_after: UseState<Option<DateTime>>,
 ) -> Element {
   let search = use_shared_state::<SearchRef>(cx).unwrap().to_owned();
-  let future = use_future(cx, query.get(), |query| {
-    to_owned!(date_before, date_after);
-
-    async move {
+  let future = use_future(
+    cx,
+    (query.get(), date_before.get(), date_after.get()),
+    |(query, date_before, date_after)| async move {
       let query_options = QueryOptions {
         snippet_length: 400,
-        date_before: *date_before.get(),
-        date_after: *date_after.get(),
+        date_before,
+        date_after,
         ..Default::default()
       };
       let search_guard = search.read();
       let search = search_guard.read().await;
       search.query(&query, &query_options)
-    }
-  });
+    },
+  );
 
   render! {
     div {

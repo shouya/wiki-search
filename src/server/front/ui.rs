@@ -5,11 +5,12 @@ use std::marker::PhantomData;
 use dioxus::{
   core::IntoDynNode,
   prelude::{
-    dioxus_elements, fc_to_builder, inline_props, render, rsx, use_future,
-    use_shared_state, use_shared_state_provider, use_state, Element,
-    GlobalAttributes, Props, Scope, UseState,
+    dioxus_elements, fc_to_builder, inline_props, render, rsx, to_owned,
+    use_future, use_shared_state, use_shared_state_provider, use_state,
+    Element, GlobalAttributes, Props, Scope, UseState,
   },
 };
+use tantivy::DateTime;
 
 use crate::{
   search::{PageMatchEntry, QueryOptions},
@@ -28,25 +29,75 @@ pub fn App<'a>(cx: Scope<'a, AppProps<'a>>) -> Element {
   use_shared_state_provider(cx, || cx.props.search.clone());
 
   let query = use_state(cx, String::new);
+  let date_before = use_state(cx, || None);
+  let date_after = use_state(cx, || None);
 
   render! {
     div {
       QueryBar {
-        query: query.clone()
+        query: query.clone(),
+        date_before: date_before.clone(),
+        date_after: date_after.clone()
       }
       SearchResult {
-        query: query.clone()
+        query: query.clone(),
+        date_before: date_before.clone(),
+        date_after: date_after.clone()
       }
     }
   }
 }
 
 #[inline_props]
-fn QueryBar(cx: Scope, query: UseState<String>) -> Element {
+fn QueryBar(
+  cx: Scope,
+  query: UseState<String>,
+  date_before: UseState<Option<DateTime>>,
+  date_after: UseState<Option<DateTime>>,
+) -> Element {
+  use chrono::NaiveDate;
+
+  let set_date = |state: UseState<Option<DateTime>>, s: &str| {
+    if s.is_empty() {
+      state.set(None);
+      return;
+    }
+
+    let Some(naive_date) = NaiveDate::parse_from_str(s, "%Y-%m-%d").ok() else {
+      return;
+    };
+    let date_time = naive_date.and_hms_opt(0, 0, 0).unwrap().and_utc();
+    let date_time = DateTime::from_timestamp_secs(date_time.timestamp());
+    state.set(Some(date_time));
+  };
+
   render! {
-    input {
-      placeholder: "Enter query here...",
-      oninput: move |e| { query.set(e.value.clone()) }
+    div {
+      div {
+        label {
+          "query: "
+          input {
+            placeholder: "Enter query here...",
+            oninput: move |e| { query.set(e.value.clone()) }
+          }
+        }
+      }
+      div {
+        label {
+          "before: "
+          input {
+            placeholder: "2023-01-02",
+            oninput: move |e| { set_date(date_before.clone(), &e.value) }
+          }
+        }
+        label {
+          "after: "
+          input {
+            placeholder: "2023-01-02",
+            oninput: move |e| { set_date(date_after.clone(), &e.value) }
+          }
+        }
+      }
     }
   }
 }
@@ -87,24 +138,38 @@ impl<'a, 'b> IntoDynNode<'a> for Rendered<&'b Vec<PageMatchEntry>> {
 }
 
 #[inline_props]
-fn SearchResult(cx: Scope, query: UseState<String>) -> Element {
+fn SearchResult(
+  cx: Scope,
+  query: UseState<String>,
+  date_before: UseState<Option<DateTime>>,
+  date_after: UseState<Option<DateTime>>,
+) -> Element {
   let search = use_shared_state::<SearchRef>(cx).unwrap().to_owned();
+  let future = use_future(cx, query.get(), |query| {
+    to_owned!(date_before, date_after);
 
-  let future = use_future(cx, query.get(), |query| async move {
-    let query_options = QueryOptions {
-      snippet_length: 400,
-      ..Default::default()
-    };
-    let search_guard = search.read();
-    let search = search_guard.read().await;
-    search.query(&query, &query_options)
+    async move {
+      let query_options = QueryOptions {
+        snippet_length: 400,
+        date_before: *date_before.get(),
+        date_after: *date_after.get(),
+        ..Default::default()
+      };
+      let search_guard = search.read();
+      let search = search_guard.read().await;
+      search.query(&query, &query_options)
+    }
   });
 
   render! {
     div {
       match future.value() {
         Some(Ok(result)) => {
-          rsx! { "Query: {query.get()} ({result.total_records} results) (elapsed: {result.elapsed:?})" }
+          rsx! {
+            "Query: {query.get()}"
+            "({result.total_records} results)"
+            "(elapsed: {result.elapsed:?})"
+          }
         }
         _ => {
           rsx! { "Query: {query.get()}" }

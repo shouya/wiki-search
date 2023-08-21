@@ -166,8 +166,8 @@ fn SearchResult(
       match future.value() {
         Some(Ok(result)) => {
           rsx! {
-            "Query: {query.get()}"
-            "({result.total_records} results)"
+            "Query: {query.get()} "
+            "({result.total_records} results) "
             "(elapsed: {result.elapsed:?})"
           }
         }

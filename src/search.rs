@@ -1,4 +1,7 @@
-use std::{ops::Range, path::Path};
+use std::{
+  ops::{Bound, Range},
+  path::Path,
+};
 
 use clap::Args;
 use serde::Deserialize;
@@ -182,8 +185,12 @@ impl Search {
     Ok(())
   }
 
-  fn parse_query(&self, query: &str) -> Result<Box<dyn Query>> {
-    use tantivy::query::QueryParser;
+  fn parse_query(
+    &self,
+    query: &str,
+    options: &QueryOptions,
+  ) -> Result<Box<dyn Query>> {
+    use tantivy::query::{BooleanQuery, QueryParser, RangeQuery};
     let mut query_parser = QueryParser::for_index(
       &self.index,
       vec![self.fields.title, self.fields.text],
@@ -192,7 +199,21 @@ impl Search {
     query_parser.set_field_fuzzy(self.fields.title, true, 0, true);
     query_parser.set_field_fuzzy(self.fields.text, true, 0, true);
 
-    Ok(query_parser.parse_query(query)?)
+    let mut query = query_parser.parse_query(query)?;
+
+    let to_bound = |d| match d {
+      Some(d) => Bound::Included(d),
+      None => Bound::Unbounded,
+    };
+    let title_range_query = Box::new(RangeQuery::new_date_bounds(
+      "title_date".into(),
+      to_bound(options.date_after),
+      to_bound(options.date_before),
+    ));
+
+    let query = BooleanQuery::intersection(vec![query, title_range_query]);
+
+    Ok(Box::new(query))
   }
 
   fn search(
@@ -268,7 +289,7 @@ impl Search {
     let start = std::time::Instant::now();
     let mut searcher = self.index.reader()?.searcher();
 
-    let query = self.parse_query(query)?;
+    let query = self.parse_query(query, options)?;
     let (total_records, top_docs) =
       self.search(&mut searcher, options, &query)?;
     let entries =

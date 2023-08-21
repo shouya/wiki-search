@@ -125,6 +125,11 @@ pub struct QueryOptions {
   #[serde(deserialize_with = "deserialize_date")]
   #[clap(long, value_parser = parse_date)]
   pub date_after: Option<tantivy::DateTime>,
+
+  /// fuzzy search
+  #[clap(short('f'), long, default_value_t)]
+  #[serde(default)]
+  pub fuzzy: bool,
 }
 
 impl Default for QueryOptions {
@@ -135,6 +140,7 @@ impl Default for QueryOptions {
       snippet_length: 100,
       date_before: None,
       date_after: None,
+      fuzzy: false,
     }
   }
 }
@@ -196,10 +202,12 @@ impl Search {
       vec![self.fields.title, self.fields.text],
     );
 
-    query_parser.set_field_fuzzy(self.fields.title, true, 0, true);
-    query_parser.set_field_fuzzy(self.fields.text, true, 0, true);
+    if options.fuzzy {
+      query_parser.set_field_fuzzy(self.fields.title, true, 1, true);
+      query_parser.set_field_fuzzy(self.fields.text, true, 1, true);
+    }
 
-    let mut query = query_parser.parse_query(query)?;
+    let query = query_parser.parse_query(query)?;
 
     let to_bound = |d| match d {
       Some(d) => Bound::Included(d),

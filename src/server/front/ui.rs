@@ -5,9 +5,9 @@ use std::marker::PhantomData;
 use dioxus::{
   core::IntoDynNode,
   prelude::{
-    dioxus_elements, fc_to_builder, inline_props, render, rsx, to_owned,
-    use_future, use_shared_state, use_shared_state_provider, use_state,
-    Element, GlobalAttributes, Props, Scope, UseState,
+    dioxus_elements, fc_to_builder, inline_props, render, rsx, use_future,
+    use_shared_state, use_shared_state_provider, use_state, Element,
+    GlobalAttributes, Props, Scope, UseState,
   },
 };
 use tantivy::DateTime;

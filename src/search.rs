@@ -105,8 +105,9 @@ impl MatchSnippet {
 #[derive(Clone, Args, Deserialize)]
 pub struct QueryOptions {
   /// offset of results
-  #[clap(short('s'), long)]
-  pub offset: Option<usize>,
+  #[clap(short('s'), long, default_value_t = 0)]
+  #[serde(default)]
+  pub offset: usize,
 
   /// number of results
   #[clap(short('n'), long, default_value_t = 10)]
@@ -135,7 +136,7 @@ pub struct QueryOptions {
 impl Default for QueryOptions {
   fn default() -> Self {
     QueryOptions {
-      offset: None,
+      offset: 0,
       count: 10,
       snippet_length: 100,
       date_before: None,
@@ -233,8 +234,7 @@ impl Search {
     use tantivy::collector::{Count, TopDocs};
     let mut collector = MultiCollector::new();
     let top_docs_handle = collector.add_collector(
-      TopDocs::with_limit(options.count)
-        .and_offset(options.offset.unwrap_or(0)),
+      TopDocs::with_limit(options.count).and_offset(options.offset),
     );
     let total_records_handle = collector.add_collector(Count);
 
@@ -302,7 +302,7 @@ impl Search {
       self.search(&mut searcher, options, &query)?;
     let entries =
       self.generate_docs(&mut searcher, options, &query, top_docs)?;
-    let new_offset = options.offset.unwrap_or(0) + entries.len();
+    let new_offset = options.offset + entries.len();
     let new_offset = if new_offset < total_records {
       Some(new_offset)
     } else {

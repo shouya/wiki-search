@@ -42,7 +42,8 @@ pub fn App<'a>(cx: Scope<'a, AppProps<'a>>) -> Element {
       SearchResult {
         query: query.clone(),
         date_before: date_before.clone(),
-        date_after: date_after.clone()
+        date_after: date_after.clone(),
+        offset: 0
       }
     }
   }
@@ -143,49 +144,77 @@ fn SearchResult(
   query: UseState<String>,
   date_before: UseState<Option<DateTime>>,
   date_after: UseState<Option<DateTime>>,
+  offset: usize,
 ) -> Element {
+  let visible = use_state(cx, || *offset == 0);
   let search = use_shared_state::<SearchRef>(cx).unwrap().to_owned();
   let future = use_future(
     cx,
-    (query.get(), date_before.get(), date_after.get()),
-    |(query, date_before, date_after)| async move {
+    (
+      query.get(),
+      date_before.get(),
+      date_after.get(),
+      offset,
+      visible.get(),
+    ),
+    |(query, date_before, date_after, offset, visible)| async move {
+      if !visible {
+        return None;
+      }
+
       let query_options = QueryOptions {
         snippet_length: 400,
         date_before,
         date_after,
+        offset,
         ..Default::default()
       };
       let search_guard = search.read();
       let search = search_guard.read().await;
-      search.query(&query, &query_options)
+      Some(search.query(&query, &query_options))
     },
   );
 
   render! {
-    div {
-      match future.value() {
-        Some(Ok(result)) => {
-          rsx! {
+    match future.value() {
+      None => { rsx! { "Loading..." } }
+      Some(None) => {
+        rsx! {
+          div {
+            onclick: move |_| { visible.set(true) },
+            "Click to load next page"
+          }
+        }
+      }
+      Some(Some(Ok(result))) => {
+        rsx! {
+          div  {
             "Query: {query.get()} "
             "({result.total_records} results) "
             "(elapsed: {result.elapsed:?})"
           }
-        }
-        _ => {
-          rsx! { "Query: {query.get()}" }
+
+          Rendered(&result.entries)
+
+          // if more pages are available, render a button to load the next page
+          if let Some(new_offset) = result.new_offset {
+            rsx! {
+              SearchResult {
+                query: query.clone(),
+                date_before: date_before.clone(),
+                date_after: date_after.clone(),
+                offset: new_offset
+              }
+            }
+          }
         }
       }
-    },
-    div {
-      match future.value() {
-        Some(Ok(result)) => {
-          rsx! { Rendered(&result.entries) }
-        }
-        Some(Err(err)) => {
-          rsx! { "Error: {err}" }
-        }
-        None => {
-          rsx! { "Loading..." }
+
+      Some(Some(Err(e))) => {
+        rsx! {
+          div {
+            "Error: {e}"
+          }
         }
       }
     }

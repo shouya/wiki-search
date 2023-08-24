@@ -42,7 +42,7 @@ pub struct Search {
 pub struct PageMatchResult {
   pub entries: Vec<PageMatchEntry>,
   pub new_offset: Option<usize>,
-  pub total_records: usize,
+  pub remaining: usize,
   pub elapsed: std::time::Duration,
 }
 
@@ -308,10 +308,11 @@ impl Search {
     } else {
       None
     };
+    let remaining = total_records - options.offset;
 
     let elapsed = start.elapsed();
     Ok(PageMatchResult {
-      total_records,
+      remaining,
       new_offset,
       entries,
       elapsed,

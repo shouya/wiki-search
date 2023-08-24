@@ -79,8 +79,15 @@ fn QueryBar(
           "query: "
           input {
             placeholder: "Enter query here...",
+            value: "{query}",
             oninput: move |e| { query.set(e.value.clone()) }
           }
+        }
+        button {
+          onclick: move |_| {
+            query.set(String::new());
+          },
+          "clear"
         }
       }
       div {
@@ -233,7 +240,7 @@ fn SearchResult(
         rsx! {
           div  {
             "Query: {query.get()} "
-            "({result.total_records} results) "
+            "({result.remaining} results left) "
             "(elapsed: {result.elapsed:?})"
           }
 

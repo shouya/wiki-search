@@ -5,9 +5,9 @@ use std::marker::PhantomData;
 use dioxus::{
   core::IntoDynNode,
   prelude::{
-    dioxus_elements, fc_to_builder, inline_props, render, rsx, use_future,
-    use_shared_state, use_shared_state_provider, use_state, Element,
-    GlobalAttributes, Props, Scope, UseState,
+    dioxus_elements, fc_to_builder, inline_props, render, rsx, use_eval,
+    use_future, use_shared_state, use_shared_state_provider, use_state,
+    Element, GlobalAttributes, Props, Scope, UseState,
   },
 };
 use tantivy::DateTime;
@@ -138,6 +138,36 @@ impl<'a, 'b> IntoDynNode<'a> for Rendered<&'b Vec<PageMatchEntry>> {
   }
 }
 
+type EvalCreator = std::rc::Rc<
+  dyn Fn(&str) -> Result<dioxus::prelude::UseEval, dioxus::prelude::EvalError>,
+>;
+
+async fn is_visible(eval: EvalCreator, element_id: &str) -> bool {
+  let signal = eval(&format!(
+    r#"
+!function() {{
+  const signal = new AbortController();
+  window.addEventListener('scroll', function() {{
+    const el = document.getElementById("{element_id}");
+    if (el == null) {{
+      signal.abort();
+      return;
+    }}
+    const rect = el.getBoundingClientRect();
+    const {{top, bottom}} = rect;
+    if ((top >= 0) && (bottom <= window.innerHeight)) {{
+      signal.abort();
+      dioxus.send(true);
+    }}
+  }}, {{ signal: signal.signal }})
+}}();
+"#,
+  ))
+  .unwrap();
+  let jsvalue = signal.recv().await.unwrap();
+  jsvalue.as_bool().unwrap()
+}
+
 #[inline_props]
 fn SearchResult(
   cx: Scope,
@@ -148,6 +178,9 @@ fn SearchResult(
 ) -> Element {
   let visible = use_state(cx, || *offset == 0);
   let search = use_shared_state::<SearchRef>(cx).unwrap().to_owned();
+  let eval = use_eval(cx).clone();
+  let element_id = format!("search-result-{}", offset);
+
   let future = use_future(
     cx,
     (
@@ -175,12 +208,22 @@ fn SearchResult(
     },
   );
 
+  let visible_cloned = visible.clone();
+  let element_id_cloned = element_id.clone();
+  cx.push_future({
+    async move {
+      is_visible(eval, &element_id_cloned).await;
+      visible_cloned.set(true);
+    }
+  });
+
   render! {
     match future.value() {
       None => { rsx! { "Loading..." } }
       Some(None) => {
         rsx! {
           div {
+            id: "{element_id}",
             onclick: move |_| { visible.set(true) },
             "Click to load next page"
           }

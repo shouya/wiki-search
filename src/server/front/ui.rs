@@ -76,9 +76,11 @@ fn QueryBar(
 
   render! {
     div {
+      class: "query-bar",
       div {
+        class: "query-input",
         label {
-          "query: "
+          span { class: "query-input-label", "Query: " }
           input {
             placeholder: "Enter query here...",
             value: "{query}",
@@ -93,15 +95,16 @@ fn QueryBar(
         }
       }
       div {
+        class: "query-date",
         label {
-          "before: "
+          span { class: "query-date-label", "Before: " }
           input {
             placeholder: "2023-01-02",
             oninput: move |e| { set_date(date_before.clone(), &e.value) }
           }
         }
         label {
-          "after: "
+          span { class: "query-date-label", "After: " }
           input {
             placeholder: "2023-01-02",
             oninput: move |e| { set_date(date_after.clone(), &e.value) }

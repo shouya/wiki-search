@@ -1,0 +1,53 @@
+.query-bar {
+  /* make the query region stick to the top when scrolling */
+  position: sticky;
+  top: 0;
+  background-color: white;
+  padding-top: 10pt;
+  padding-bottom: 10pt;
+  margin-bottom: 10pt;
+}
+
+.query-bar label {
+}
+
+.query-bar label .query-input-label,
+.query-bar label .query-date-label {
+  min-width: 40pt;
+  display: inline-block;
+}
+
+.query-bar {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 50pt;
+}
+
+.query-input {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  width: 60vw;
+}
+
+.query-date {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  justify-items: space-between;
+  width: 60vw;
+}
+
+.query-bar input {
+  flex: 1;
+}
+
+.query-date label,
+.query-input label {
+  flex: 1;
+  display: flex;
+}
+.query-input button {
+  width: 40pt;
+}

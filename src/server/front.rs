@@ -6,6 +6,7 @@ use axum::{
   routing::get,
   Extension, Router,
 };
+use http::Uri;
 
 use super::{SearchRef, WikiRef};
 
@@ -17,6 +18,7 @@ pub fn router() -> Router {
 
   Router::new()
     .route("/", get(index))
+    .route("/style.css", get(static_file))
     .route("/ws", get(websocket))
     .layer(Extension(LiveViewPool(view)))
 }
@@ -33,6 +35,19 @@ pub async fn index(
   let html = String::from_utf8_lossy(&bytes).replace("{liveview_glue}", &glue);
 
   Html(html)
+}
+
+pub async fn static_file(uri: Uri) -> impl IntoResponse {
+  use axum::http::header;
+  let path = uri.path().strip_prefix('/').unwrap_or(uri.path());
+
+  if let Some(file) = StaticAsset::get(path) {
+    let mime_type = mime_guess::from_path(path).first_or_octet_stream();
+    let header = [(header::CONTENT_TYPE, mime_type.as_ref())];
+    (header, file.data).into_response()
+  } else {
+    axum::http::StatusCode::NOT_FOUND.into_response()
+  }
 }
 
 pub async fn websocket(

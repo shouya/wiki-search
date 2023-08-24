@@ -21,6 +21,8 @@ use crate::{
 pub struct AppProps<'a> {
   pub wiki: WikiRef,
   pub search: SearchRef,
+  // to convince dioxus that this prop contains a ref, so do not
+  // attempt to diff it.
   pub tag: PhantomData<&'a ()>,
 }
 

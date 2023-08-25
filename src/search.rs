@@ -148,6 +148,10 @@ impl Default for QueryOptions {
 
 impl Search {
   pub fn new(index_dir: &Path) -> Result<Self> {
+    if !index_dir.exists() {
+      std::fs::create_dir_all(index_dir)?;
+    }
+
     let (fields, schema) = build_schema();
     let dir = MmapDirectory::open(index_dir)
       .map_err(|e| e.to_string())

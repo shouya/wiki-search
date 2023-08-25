@@ -21,7 +21,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  height: 50pt;
+  height: 40pt;
 }
 
 .query-input {
@@ -47,7 +47,9 @@
 .query-input label {
   flex: 1;
   display: flex;
+  margin: 0 5pt;
 }
 .query-input button {
+  margin: 0 5pt;
   width: 40pt;
 }

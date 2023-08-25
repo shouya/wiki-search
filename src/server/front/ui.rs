@@ -91,7 +91,7 @@ fn QueryBar(
           onclick: move |_| {
             query.set(String::new());
           },
-          "clear"
+          "Clear"
         }
       }
       div {

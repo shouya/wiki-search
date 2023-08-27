@@ -344,6 +344,11 @@ impl Search {
 
     Ok(doc)
   }
+
+  pub fn page_count(&self) -> Result<usize> {
+    let reader = self.index.reader()?;
+    Ok(reader.searcher().num_docs() as usize)
+  }
 }
 
 #[rustfmt::skip]

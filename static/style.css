@@ -1,6 +1,10 @@
 .query-bar {
   /* make the query region stick to the top when scrolling */
   position: sticky;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
   top: 0;
   background-color: white;
   padding-top: 10pt;
@@ -8,20 +12,13 @@
   margin-bottom: 10pt;
 }
 
-.query-bar label {
+.user-input label {
 }
 
-.query-bar label .query-input-label,
-.query-bar label .query-date-label {
+.user-input label .query-input-label,
+.user-input label .query-date-label {
   min-width: 40pt;
   display: inline-block;
-}
-
-.query-bar {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  height: 40pt;
 }
 
 .query-input {
@@ -39,7 +36,7 @@
   width: 60vw;
 }
 
-.query-bar input {
+.user-input input {
   flex: 1;
 }
 
@@ -52,4 +49,16 @@
 .query-input button {
   margin: 0 5pt;
   width: 40pt;
+}
+
+.user-input {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 40pt;
+}
+
+.reindex-button {
+  display: flex;
+  flex-direction: column;
 }

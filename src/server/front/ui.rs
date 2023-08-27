@@ -78,39 +78,43 @@ fn QueryBar(
     div {
       class: "query-bar",
       div {
-        class: "query-input",
-        label {
-          span { class: "query-input-label", "Query: " }
-          input {
-            placeholder: "Enter query here...",
-            value: "{query}",
-            oninput: move |e| { query.set(e.value.clone()) }
+        class: "user-input",
+        div {
+          class: "query-input",
+          label {
+            span { class: "query-input-label", "Query: " }
+            input {
+              placeholder: "Enter query here...",
+              value: "{query}",
+              oninput: move |e| { query.set(e.value.clone()) }
+            }
+          }
+          button {
+            onclick: move |_| {
+              query.set(String::new());
+            },
+            "Clear"
           }
         }
-        button {
-          onclick: move |_| {
-            query.set(String::new());
-          },
-          "Clear"
+        div {
+          class: "query-date",
+          label {
+            span { class: "query-date-label", "Before: " }
+            input {
+              placeholder: "2023-01-02",
+              oninput: move |e| { set_date(date_before.clone(), &e.value) }
+            }
+          }
+          label {
+            span { class: "query-date-label", "After: " }
+            input {
+              placeholder: "2023-01-02",
+              oninput: move |e| { set_date(date_after.clone(), &e.value) }
+            }
+          }
         }
       }
-      div {
-        class: "query-date",
-        label {
-          span { class: "query-date-label", "Before: " }
-          input {
-            placeholder: "2023-01-02",
-            oninput: move |e| { set_date(date_before.clone(), &e.value) }
-          }
-        }
-        label {
-          span { class: "query-date-label", "After: " }
-          input {
-            placeholder: "2023-01-02",
-            oninput: move |e| { set_date(date_after.clone(), &e.value) }
-          }
-        }
-      }
+      ReindexButton {}
     }
   }
 }
@@ -270,6 +274,67 @@ fn SearchResult(
           div {
             "Error: {e}"
           }
+        }
+      }
+    }
+  }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ReloadStatus {
+  Loading,
+  Done,
+}
+
+#[inline_props]
+fn ReindexButton(cx: Scope) -> Element {
+  let wiki = use_shared_state::<WikiRef>(cx).unwrap().to_owned();
+  let search = use_shared_state::<SearchRef>(cx).unwrap().to_owned();
+  let reload_status = use_state(cx, || ReloadStatus::Done);
+
+  let page_count = use_future(cx, reload_status.get(), |_reload_status| {
+    let search = search.clone();
+    async move {
+      let guard1 = search.read();
+      let guard2 = guard1.read().await;
+      guard2.page_count().unwrap_or_default()
+    }
+  });
+
+  let reindex_button = rsx! {
+    button {
+      onclick: move |_| {
+        reload_status.set(ReloadStatus::Loading);
+        cx.spawn({
+          let wiki = wiki.clone();
+          let search = search.clone();
+          let reload_status = reload_status.clone();
+          async move {
+            let wiki_guard = wiki.read();
+            let pages = wiki_guard.lock().await.list_pages().await.unwrap();
+            let search_guard = search.read();
+            search_guard.write().await.reindex_pages(pages).unwrap();
+            reload_status.set(ReloadStatus::Done);
+          }
+        });
+      },
+      "Reindex"
+    }
+  };
+
+  render! {
+    div {
+      class: "reindex-button",
+      match reload_status.get() {
+        ReloadStatus::Loading => {rsx! { "Reindexing..." }}
+        ReloadStatus::Done => {reindex_button}
+      }
+      div {
+        class: "page-count",
+        "Indexed pages: "
+        match page_count.value() {
+          None => rsx! { "loading..." },
+          Some(n) => rsx! { "{n}" }
         }
       }
     }

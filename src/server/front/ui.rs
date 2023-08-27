@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use std::marker::PhantomData;
+use std::{marker::PhantomData, time::Duration};
 
 use dioxus::{
   core::IntoDynNode,
@@ -282,15 +282,16 @@ fn SearchResult(
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ReloadStatus {
+  Initial,
   Loading,
-  Done,
+  Done(Duration),
 }
 
 #[inline_props]
 fn ReindexButton(cx: Scope) -> Element {
   let wiki = use_shared_state::<WikiRef>(cx).unwrap().to_owned();
   let search = use_shared_state::<SearchRef>(cx).unwrap().to_owned();
-  let reload_status = use_state(cx, || ReloadStatus::Done);
+  let reload_status = use_state(cx, || ReloadStatus::Initial);
 
   let page_count = use_future(cx, reload_status.get(), |_reload_status| {
     let search = search.clone();
@@ -301,24 +302,34 @@ fn ReindexButton(cx: Scope) -> Element {
     }
   });
 
-  let reindex_button = rsx! {
-    button {
-      onclick: move |_| {
-        reload_status.set(ReloadStatus::Loading);
-        cx.spawn({
-          let wiki = wiki.clone();
-          let search = search.clone();
-          let reload_status = reload_status.clone();
-          async move {
-            let wiki_guard = wiki.read();
-            let pages = wiki_guard.lock().await.list_pages().await.unwrap();
-            let search_guard = search.read();
-            search_guard.write().await.reindex_pages(pages).unwrap();
-            reload_status.set(ReloadStatus::Done);
+  let reindex_button = |dur: Option<Duration>| {
+    rsx! {
+      button {
+        onclick: move |_| {
+          reload_status.set(ReloadStatus::Loading);
+          cx.spawn({
+            let wiki = wiki.clone();
+            let search = search.clone();
+            let reload_status = reload_status.clone();
+            async move {
+              let start = std::time::Instant::now();
+              let wiki_guard = wiki.read();
+              let pages = wiki_guard.lock().await.list_pages().await.unwrap();
+              let search_guard = search.read();
+              search_guard.write().await.reindex_pages(pages).unwrap();
+              reload_status.set(ReloadStatus::Done(start.elapsed()));
+            }
+          });
+        },
+
+        match dur {
+          None => rsx! { "Reindex" },
+          Some(dur) => {
+            let dur = format!("{:.2?}", dur);
+            rsx! { "Reindex (took: {dur})" }
           }
-        });
-      },
-      "Reindex"
+        }
+      }
     }
   };
 
@@ -326,8 +337,9 @@ fn ReindexButton(cx: Scope) -> Element {
     div {
       class: "reindex-button",
       match reload_status.get() {
-        ReloadStatus::Loading => {rsx! { "Reindexing..." }}
-        ReloadStatus::Done => {reindex_button}
+        ReloadStatus::Loading => rsx! { "Reindexing..." },
+        ReloadStatus::Initial => reindex_button(None),
+        ReloadStatus::Done(dur) => reindex_button(Some(*dur))
       }
       div {
         class: "page-count",

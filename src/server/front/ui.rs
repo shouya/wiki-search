@@ -13,8 +13,9 @@ use dioxus::{
 use tantivy::DateTime;
 
 use crate::{
-  search::{PageMatchEntry, QueryOptions},
+  search::{PageMatchEntry, PageMatchResult, QueryOptions},
   server::{SearchRef, WikiRef},
+  util::Error,
 };
 
 #[derive(Clone, Props)]
@@ -236,7 +237,10 @@ fn SearchResult(
   render! {
     hr {}
     match future.value() {
+      // Future not ready, loading.
       None => { rsx! { "Loading..." } }
+
+      // Element currently not visible, lazy load suspended.
       Some(None) => {
         rsx! {
           div {
@@ -246,6 +250,8 @@ fn SearchResult(
           }
         }
       }
+
+      // Element visible and result is ready, render results.
       Some(Some(Ok(result))) => {
         rsx! {
           div  {
@@ -257,9 +263,11 @@ fn SearchResult(
           Rendered(&result.entries)
 
           // if more pages are available, render a button to load the next page
-          if let Some(new_offset) = result.new_offset {
-            rsx! {
-              SearchResult {
+          match result.new_offset {
+            None => rsx! { "Last page reached!" }
+            Some(new_offset) => {
+              rsx! {
+                SearchResult {
                 query: query.clone(),
                 date_before: date_before.clone(),
                 date_after: date_after.clone(),
@@ -270,6 +278,7 @@ fn SearchResult(
         }
       }
 
+      // Loading failed.
       Some(Some(Err(e))) => {
         rsx! {
           div {

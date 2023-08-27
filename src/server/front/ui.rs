@@ -234,6 +234,7 @@ fn SearchResult(
   });
 
   render! {
+    hr {}
     match future.value() {
       None => { rsx! { "Loading..." } }
       Some(None) => {

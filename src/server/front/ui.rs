@@ -13,9 +13,8 @@ use dioxus::{
 use tantivy::DateTime;
 
 use crate::{
-  search::{PageMatchEntry, PageMatchResult, QueryOptions},
+  search::{PageMatchEntry, QueryOptions},
   server::{SearchRef, WikiRef},
-  util::Error,
 };
 
 #[derive(Clone, Props)]
@@ -75,6 +74,22 @@ fn QueryBar(
     state.set(Some(date_time));
   };
 
+  let eval = use_eval(cx).clone();
+
+  cx.spawn({
+    let eval = eval.clone();
+    async move {
+      eval(
+        "document.querySelectorAll('.query-date input:not(.datepicker-input)').forEach(e =>
+           new Datepicker(e, {format: 'yyyy-mm-dd'})
+         );",
+      )
+      .unwrap()
+      .await
+      .unwrap();
+    }
+  });
+
   render! {
     div {
       class: "query-bar",
@@ -103,14 +118,16 @@ fn QueryBar(
             span { class: "query-date-label", "Before: " }
             input {
               placeholder: "2023-01-02",
-              oninput: move |e| { set_date(date_before.clone(), &e.value) }
+              onchange: move |e| { set_date(date_before.clone(), &e.value) },
+              oninput: move |e| { set_date(date_after.clone(), &e.value) },
             }
           }
           label {
             span { class: "query-date-label", "After: " }
             input {
               placeholder: "2023-01-02",
-              oninput: move |e| { set_date(date_after.clone(), &e.value) }
+              onchange: move |e| { set_date(date_after.clone(), &e.value) },
+              oninput: move |e| { set_date(date_after.clone(), &e.value) },
             }
           }
         }
@@ -264,14 +281,15 @@ fn SearchResult(
 
           // if more pages are available, render a button to load the next page
           match result.new_offset {
-            None => rsx! { "Last page reached!" }
+            None => rsx! { "Last page reached!" },
             Some(new_offset) => {
               rsx! {
                 SearchResult {
-                query: query.clone(),
-                date_before: date_before.clone(),
-                date_after: date_after.clone(),
-                offset: new_offset
+                  query: query.clone(),
+                  date_before: date_before.clone(),
+                  date_after: date_after.clone(),
+                  offset: new_offset
+                }
               }
             }
           }

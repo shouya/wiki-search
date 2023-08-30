@@ -25,13 +25,15 @@
           </div>
 
           <div>
-            <label for="date-before">Before:</label>
-            <input id="date-before" name="date_before" placeholder="2023-01-01"
+            <label for="date-after">From:</label>
+            <input id="date-after" name="date_after" placeholder="2023-01-01"
+                   required pattern="^(\d{4}-\d{2}-\d{2})?$"
                    hx-trigger="change changed"
                    hx-post="frag/search"
                    hx-target="#result" />
-            <label for="date-after">After:</label>
-            <input id="date-after" name="date_after" placeholder="2023-01-01"
+            <label for="date-before">To:</label>
+            <input id="date-before" name="date_before" placeholder="2023-01-01"
+                   required pattern="^(\d{4}-\d{2}-\d{2})?$"
                    hx-trigger="change changed"
                    hx-post="frag/search"
                    hx-target="#result" />

@@ -1,4 +1,9 @@
 #![allow(non_snake_case)]
+// this module currently only serves as a reference while I migrate
+// from liveview to htmx.
+//
+// it will be removed after the migration is complete.
+#![allow(unused)]
 
 use std::{marker::PhantomData, time::Duration};
 

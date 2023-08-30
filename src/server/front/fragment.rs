@@ -37,8 +37,9 @@ async fn search(
     date_after: form.date_after,
     ..Default::default()
   };
+  let q = if form.q.is_empty() { "*" } else { &form.q };
 
-  let result = search.query(&form.q, &options)?;
+  let result = search.query(q, &options)?;
   let header = html! {
     div class="search-result-header" {
       "Query: " (form.q)

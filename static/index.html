@@ -7,11 +7,38 @@
     <link rel="stylesheet" href="https://unpkg.com/vanillajs-datepicker@1.3.4/dist/css/datepicker.min.css" />
     <script src="https://unpkg.com/vanillajs-datepicker@1.3.4/dist/js/datepicker-full.min.js"></script>
     <script src="https://unpkg.com/htmx.org@1.9.5"></script>
+    <!-- <script src="https://unpkg.com/hyperscript.org@0.9.11"></script> -->
   </head>
   <body>
     <div id="main">
-      <div id="query-bar" hx-get="frag/query-bar" hx-trigger="load"></div>
-      <div id="result" hx-get="frag/result" hx-trigger="load"></div>
+      <div id="query-bar">
+        <form id="query-form">
+          <div>
+            <label for="query">Query:</label>
+            <input id="query" name="q" placeholder="Enter query here..."
+                   hx-trigger="keyup changed throttle:500ms"
+                   hx-post="frag/search"
+                   hx-target="#result" />
+            <button onclick="document.getElementById('query').value=''">
+              Clear
+            </button>
+          </div>
+
+          <div>
+            <label for="date-before">Before:</label>
+            <input id="date-before" name="date_before" placeholder="2023-01-01"
+                   hx-trigger="change changed"
+                   hx-post="frag/search"
+                   hx-target="#result" />
+            <label for="date-after">After:</label>
+            <input id="date-after" name="date_after" placeholder="2023-01-01"
+                   hx-trigger="change changed"
+                   hx-post="frag/search"
+                   hx-target="#result" />
+          </div>
+        </form>
+      </div>
+      <div id="result"></div>
     </div>
   </body>
 </html>

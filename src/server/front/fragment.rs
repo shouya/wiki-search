@@ -1,24 +1,76 @@
-use axum::{routing::get, Router};
-use maud::{html, Markup};
+use axum::{routing::post, Extension, Form, Router};
+use maud::{html, Markup, PreEscaped};
+use serde::Deserialize;
+use tantivy::DateTime;
+
+use crate::{
+  search::{PageMatchEntry, QueryOptions},
+  server::SearchRef,
+  util::Result,
+};
 
 pub fn router() -> Router {
-  Router::new()
-    .route("/query-bar", get(query_bar))
-    .route("/result", get(search_result))
+  Router::new().route("/search", post(search))
 }
 
-async fn query_bar() -> Markup {
-  html! {
-    div #query-bar {
-      "query-bar"
-    }
-  }
+#[derive(Deserialize)]
+struct SearchQuery {
+  q: String,
+  #[serde(deserialize_with = "crate::util::deserialize_date")]
+  date_before: Option<DateTime>,
+  #[serde(deserialize_with = "crate::util::deserialize_date")]
+  date_after: Option<DateTime>,
+  offset: Option<usize>,
 }
 
-async fn search_result() -> Markup {
-  html! {
-    div #search-result {
-      "loaded"
+#[axum::debug_handler]
+async fn search(
+  Extension(search): Extension<SearchRef>,
+  Form(form): Form<SearchQuery>,
+) -> Result<Markup> {
+  let search = search.read().await;
+
+  let options = QueryOptions {
+    offset: form.offset.unwrap_or(0),
+    snippet_length: 400,
+    date_before: form.date_before,
+    date_after: form.date_after,
+    ..Default::default()
+  };
+
+  let result = search.query(&form.q, &options)?;
+  let header = html! {
+    div class="search-result-header" {
+      "Query: " (form.q)
+      " (" (result.remaining) " results left)"
+      " (elapsed: " (format!("{:.2?}", result.elapsed)) ")"
     }
-  }
+  };
+
+  let render_entry = |entry: &PageMatchEntry| {
+    let title = entry.title.highlight("<b>", "</b>");
+    let text = entry.text.highlight("<b>", "</b>");
+
+    html! {
+      div {
+        h3 style="font-weight: normal;" {
+          a href=(entry.url) {
+            (PreEscaped(title))
+          }
+        }
+        p style="max-width: 40vw;" {
+          (PreEscaped(text))
+        }
+      }
+    }
+  };
+
+  let fragment = html! {
+    (header)
+    @for entry in result.entries {
+      (render_entry(&entry))
+    }
+  };
+
+  Ok(fragment)
 }

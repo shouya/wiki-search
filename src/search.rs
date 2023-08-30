@@ -16,10 +16,7 @@ use tantivy::{
 };
 use tantivy_jieba::JiebaTokenizer;
 
-use crate::{
-  page::Page,
-  util::{Error, Result},
-};
+use crate::{page::Page, util::Result};
 
 pub struct Fields {
   id: Field,
@@ -118,13 +115,13 @@ pub struct QueryOptions {
   pub snippet_length: usize,
 
   /// search pages with title date before this date
-  #[serde(deserialize_with = "deserialize_date")]
-  #[clap(long, value_parser = parse_date)]
+  #[serde(deserialize_with = "crate::util::deserialize_date")]
+  #[clap(long, value_parser = crate::util::parse_date)]
   pub date_before: Option<tantivy::DateTime>,
 
   /// search pages with title date after this date
-  #[serde(deserialize_with = "deserialize_date")]
-  #[clap(long, value_parser = parse_date)]
+  #[serde(deserialize_with = "crate::util::deserialize_date")]
+  #[clap(long, value_parser = crate::util::parse_date)]
   pub date_after: Option<tantivy::DateTime>,
 
   /// fuzzy search
@@ -525,33 +522,4 @@ fn collapse_overlapped_ranges(ranges: &[Range<usize>]) -> Vec<Range<usize>> {
 
 fn text_field(doc: &Document, field: Field) -> String {
   doc.get_first(field).unwrap().as_text().unwrap().to_string()
-}
-
-fn parse_date(s: &str) -> Result<DateTime> {
-  use chrono::NaiveDate;
-
-  if s.is_empty() {
-    return Err(Error::InvalidDate("empty date".into()));
-  }
-
-  let naive_date = NaiveDate::parse_from_str(s, "%Y-%m-%d")
-    .map_err(|_| Error::InvalidDate(s.to_string()))?;
-  let date_time = naive_date.and_hms_opt(0, 0, 0).unwrap().and_utc();
-  let date_time = DateTime::from_timestamp_secs(date_time.timestamp());
-  Ok(date_time)
-}
-
-fn deserialize_date<'de, D>(
-  deserializer: D,
-) -> Result<Option<DateTime>, D::Error>
-where
-  D: serde::Deserializer<'de>,
-{
-  let s = String::deserialize(deserializer)?;
-  if s.is_empty() {
-    return Ok(None);
-  }
-
-  let date_time = parse_date(&s).map_err(serde::de::Error::custom)?;
-  Ok(Some(date_time))
 }

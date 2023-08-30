@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -28,3 +29,32 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 pub type Date = chrono::NaiveDate;
 pub type DateTime = chrono::DateTime<chrono::Utc>;
+
+pub fn parse_date(s: &str) -> Result<tantivy::DateTime> {
+  use chrono::NaiveDate;
+
+  if s.is_empty() {
+    return Err(Error::InvalidDate("empty date".into()));
+  }
+
+  let naive_date = NaiveDate::parse_from_str(s, "%Y-%m-%d")
+    .map_err(|_| Error::InvalidDate(s.to_string()))?;
+  let date_time = naive_date.and_hms_opt(0, 0, 0).unwrap().and_utc();
+  let date_time = tantivy::DateTime::from_timestamp_secs(date_time.timestamp());
+  Ok(date_time)
+}
+
+pub fn deserialize_date<'de, D>(
+  deserializer: D,
+) -> Result<Option<tantivy::DateTime>, D::Error>
+where
+  D: serde::Deserializer<'de>,
+{
+  let s = String::deserialize(deserializer)?;
+  if s.is_empty() {
+    return Ok(None);
+  }
+
+  let date_time = parse_date(&s).map_err(serde::de::Error::custom)?;
+  Ok(Some(date_time))
+}

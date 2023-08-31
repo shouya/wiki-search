@@ -1,16 +1,22 @@
-use axum::{routing::post, Extension, Form, Router};
+use axum::{
+  routing::{get, post},
+  Extension, Form, Router,
+};
 use maud::{html, Markup, PreEscaped};
 use serde::Deserialize;
 use tantivy::DateTime;
 
 use crate::{
   search::{PageMatchEntry, QueryOptions},
-  server::SearchRef,
+  server::{SearchRef, WikiRef},
   util::Result,
 };
 
 pub fn router() -> Router {
-  Router::new().route("/search", post(search))
+  Router::new()
+    .route("/search", post(search))
+    .route("/reindex", post(reindex))
+    .route("/index", get(index_info))
 }
 
 #[derive(Deserialize)]
@@ -84,6 +90,32 @@ async fn search(
       (render_entry(&entry))
     }
     (next_page)
+  };
+
+  Ok(fragment)
+}
+
+async fn reindex(
+  Extension(search): Extension<SearchRef>,
+  Extension(wiki): Extension<WikiRef>,
+) -> Result<Markup> {
+  let start = std::time::Instant::now();
+  let pages = wiki.lock().await.list_pages().await?;
+  search.write().await.reindex_pages(pages)?;
+  let page_count = search.read().await.page_count()?;
+
+  let fragment = html! {
+    "Indexed " (page_count) " pages "
+    "in " (format!("{:.2?}", start.elapsed()))
+  };
+
+  Ok(fragment)
+}
+
+async fn index_info(Extension(search): Extension<SearchRef>) -> Result<Markup> {
+  let page_count = search.read().await.page_count()?;
+  let fragment = html! {
+    "Indexed " (page_count) " pages"
   };
 
   Ok(fragment)

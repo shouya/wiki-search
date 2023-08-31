@@ -67,6 +67,18 @@
             </script>
           </div>
         </form>
+
+        <div id="index-info-container">
+          <button
+            class="reindex"
+            hx-post="frag/reindex"
+            hx-target="#index-info"
+            hx-indicator="#reindex-indicator"
+          >
+            Reindex<span id="reindex-indicator">ing...</span>
+          </button>
+          <div id="index-info" hx-get="frag/index" hx-trigger="load"></div>
+        </div>
       </div>
       <div id="result"></div>
     </div>

@@ -48,18 +48,21 @@ button.clear-query {
   width: 40pt;
 }
 
-.user-input {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  height: 40pt;
-}
-
-.reindex-button {
-  display: flex;
-  flex-direction: column;
-}
-
 input:invalid {
   border-color: red;
+}
+
+#index-info-container {
+  display: flex;
+  flex-direction: column;
+  margin-right: 2rem;
+  max-width: 9rem;
+}
+
+#reindex-indicator {
+  display: none;
+}
+
+#reindex-indicator.htmx-request {
+  display: inline;
 }

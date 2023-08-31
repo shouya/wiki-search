@@ -42,9 +42,8 @@ async fn search(
   let result = search.query(q, &options)?;
   let header = html! {
     div class="search-result-header" {
-      "Query: " (form.q)
-      " (" (result.remaining) " results left)"
-      " (elapsed: " (format!("{:.2?}", result.elapsed)) ")"
+      "(" (result.remaining) " results left) "
+      "(elapsed: " (format!("{:.2?}", result.elapsed)) ")"
     }
   };
 

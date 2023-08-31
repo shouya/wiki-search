@@ -1,4 +1,4 @@
-.query-bar {
+#query-bar {
   /* make the query region stick to the top when scrolling */
   position: sticky;
   display: flex;
@@ -12,31 +12,23 @@
   margin-bottom: 10pt;
 }
 
-.user-input label {
-}
-
-.user-input label .query-input-label,
-.user-input label .query-date-label {
+#query-form label {
   min-width: 40pt;
   display: inline-block;
 }
 
-.query-input {
+#query-form .query-term {
   display: flex;
   flex-direction: row;
   align-items: baseline;
   width: 60vw;
 }
 
-.query-date {
-  display: flex;
-  flex-direction: row;
-  align-items: baseline;
+#query-form .date-range {
   justify-items: space-between;
-  width: 60vw;
 }
 
-.user-input input {
+#query-form #query {
   flex: 1;
 }
 

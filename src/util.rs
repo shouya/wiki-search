@@ -1,3 +1,4 @@
+use chrono::Datelike;
 use serde::Deserialize;
 use thiserror::Error;
 
@@ -39,9 +40,14 @@ pub fn parse_date(s: &str) -> Result<tantivy::DateTime> {
 
   let naive_date = NaiveDate::parse_from_str(s, "%Y-%m-%d")
     .map_err(|_| Error::InvalidDate(s.to_string()))?;
-  let date_time = naive_date.and_hms_opt(0, 0, 0).unwrap().and_utc();
-  let date_time = tantivy::DateTime::from_timestamp_secs(date_time.timestamp());
-  Ok(date_time)
+  if naive_date.year() < 1700 || naive_date.year() > 2200 {
+    return Err(Error::InvalidDate(s.to_string()));
+  }
+
+  let datetime = naive_date.and_hms_opt(0, 0, 0).unwrap().and_utc();
+  let datetime = tantivy::DateTime::from_timestamp_secs(datetime.timestamp());
+
+  Ok(datetime)
 }
 
 pub fn deserialize_date<'de, D>(

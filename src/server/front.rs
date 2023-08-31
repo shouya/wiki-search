@@ -1,5 +1,4 @@
 mod fragment;
-mod ui;
 
 use axum::{response::IntoResponse, routing::get, Router};
 use http::Uri;

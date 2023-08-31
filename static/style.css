@@ -13,23 +13,28 @@
 }
 
 #query-form label {
-  min-width: 40pt;
+  min-width: 5rem;
   display: inline-block;
 }
 
-#query-form .query-term {
+#query-form .query-term,
+#query-form .date-range {
   display: flex;
   flex-direction: row;
-  align-items: baseline;
+  padding-bottom: 0.2rem;
+  padding-top: 0.2rem;
   width: 60vw;
-}
-
-#query-form .date-range {
   justify-items: space-between;
 }
 
-#query-form #query {
+#query-form #query,
+#query-form .date {
   flex: 1;
+}
+
+label[for="date-before"],
+button.clear-query {
+  margin-left: 1rem;
 }
 
 .query-date label,

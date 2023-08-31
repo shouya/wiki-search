@@ -37,12 +37,16 @@ async fn search(
     date_after: form.date_after,
     ..Default::default()
   };
-  let q = if form.q.is_empty() { "*" } else { &form.q };
+  let q = if form.q.trim().is_empty() {
+    "*"
+  } else {
+    &form.q
+  };
 
   let result = search.query(q, &options)?;
   let header = html! {
     div class="search-result-header" {
-      "(" (result.remaining) " results left) "
+      (result.remaining) " results left "
       "(elapsed: " (format!("{:.2?}", result.elapsed)) ")"
     }
   };

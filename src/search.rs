@@ -99,7 +99,7 @@ impl MatchSnippet {
 // doable by manually implementing the traits, but it's a lot more
 // convenient to use the derive macros.
 
-#[derive(Clone, Args, Deserialize)]
+#[derive(Debug, Clone, Args, Deserialize)]
 pub struct QueryOptions {
   /// offset of results
   #[clap(short('s'), long, default_value_t = 0)]

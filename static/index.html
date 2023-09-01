@@ -97,6 +97,20 @@
             </script>
           </div>
         </form>
+        <script>
+          let params = new URL(document.location).searchParams;
+          for (let [key, value] of params) {
+            if (value == "" || value == null) continue;
+
+            if (key == "q") {
+              document.getElementById("query").value = value;
+            } else if (key == "date_after") {
+              document.getElementById("date-after").value = value;
+            } else if (key == "date_before") {
+              document.getElementById("date-before").value = value;
+            }
+          }
+        </script>
 
         <div id="index-info-container">
           <button

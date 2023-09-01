@@ -21,8 +21,9 @@
             <input
               id="query"
               name="q"
+              type="search"
               placeholder="Enter query here..."
-              hx-trigger="keyup changed throttle:500ms, load"
+              hx-trigger="keyup delay:300ms, load"
               hx-post="frag/search"
               hx-target="#result"
             />

@@ -24,7 +24,6 @@
   padding-bottom: 0.2rem;
   padding-top: 0.2rem;
   width: 60vw;
-  justify-items: space-between;
 }
 
 #query-form #query,
@@ -65,4 +64,41 @@ input:invalid {
 
 #reindex-indicator.htmx-request {
   display: inline;
+}
+
+.query-term-help {
+  opacity: 0;
+  visibility: hidden;
+  position: absolute;
+  background-color: white;
+  box-shadow: 0 0 5px 0 rgba(0, 0, 0, 0.2);
+  border-radius: 0.4rem;
+  padding: 0.5rem;
+  margin-left: 5rem;
+  transition-duration: 0.3s;
+  /* show above date picker popup */
+  z-index: 100;
+}
+
+.query-term:focus-within + .query-term-help,
+.query-term:hover + .query-term-help,
+.query-term-help:hover {
+  visibility: visible;
+  opacity: 1;
+}
+
+.query-term-cheatsheet {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem;
+}
+.query-term-cheatsheet {
+  display: flex;
+  flex-direction: row;
+  padding: 0.5rem;
+  gap: 2rem;
+}
+
+.query-term-cheatsheet ul {
+  padding-left: 1rem;
 }

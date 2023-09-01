@@ -33,6 +33,34 @@
               Clear
             </button>
           </div>
+          <div class="query-term-help">
+            <div class="query-term-cheatsheet">
+              <div>
+                Syntax:
+                <ul>
+                  <li>
+                    <code>AND</code>, <code>OR</code>, <code>NOT</code> -
+                    logical combinator
+                  </li>
+                  <li><code>-TERM</code> - exclude term</li>
+                  <li><code>+TERM</code> - must include term</li>
+                  <li><code>"PHRASE QUERY"</code> - phrase query</li>
+                  <li><code>field:TERM</code> - search in field</li>
+                  <li><code>TERM^2.0</code> - boost term</li>
+                </ul>
+              </div>
+              <div>
+                Fields:
+                <ul>
+                  <li><code>title</code></li>
+                  <li><code>text</code></li>
+                  <li><code>date</code></li>
+                  <li><code>namespace</code></li>
+                  <li><code>category</code></li>
+                </ul>
+              </div>
+            </div>
+          </div>
 
           <div class="date-range">
             <label for="date-after">From:</label>

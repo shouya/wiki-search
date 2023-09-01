@@ -7,9 +7,9 @@ use serde::Deserialize;
 use tantivy::DateTime;
 
 use crate::{
-  search::{PageMatchEntry, QueryOptions},
+  search::{PageMatchEntry, PageMatchResult, QueryOptions},
   server::{SearchRef, WikiRef},
-  util::Result,
+  util::{Error, Result},
 };
 
 pub fn router() -> Router {
@@ -49,7 +49,24 @@ async fn search(
     &form.q
   };
 
-  let result = search.query(q, &options)?;
+  let fragment = match search.query(q, &options) {
+    Ok(result) => render_result(result),
+    Err(Error::InvalidQuery(e)) => {
+      html! {
+        (format!("{:?}", e))
+      }
+    }
+    Err(e) => {
+      html! {
+        (format!("{:?}", e))
+      }
+    }
+  };
+
+  Ok(fragment)
+}
+
+fn render_result(result: PageMatchResult) -> Markup {
   let header = html! {
     div class="search-result-header" {
       (result.remaining) " results left "
@@ -76,23 +93,26 @@ async fn search(
   };
 
   let next_page = html! {
-    @if let Some(offset) = result.new_offset {
-      hr;
-      div hx-trigger="revealed" hx-post="frag/search" hx-include="#query-form" hx-swap="outerHTML" hx-vals={"{\"offset\":" (offset) "}"} {
-        "Load next page"
+    hr;
+    @match result.new_offset {
+      Some(offset) => {
+        div hx-trigger="revealed" hx-post="frag/search"
+        hx-include="#query-form" hx-swap="outerHTML"
+        hx-vals={"{\"offset\":" (offset) "}"} {
+          "Load next page"
+        }
       }
+      None => {div { "End of results" }}
     }
   };
 
-  let fragment = html! {
+  html! {
     (header)
     @for entry in result.entries {
       (render_entry(&entry))
     }
     (next_page)
-  };
-
-  Ok(fragment)
+  }
 }
 
 async fn reindex(

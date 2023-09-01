@@ -15,15 +15,15 @@
   <body>
     <div id="main">
       <div id="query-bar">
-        <form id="query-form">
+        <div id="query-form">
           <div class="query-term">
             <label for="query">Query:</label>
             <input
               id="query"
               name="q"
-              type="search"
               placeholder="Enter query here..."
-              hx-trigger="keyup delay:300ms, load"
+              hx-include="#query-form"
+              hx-trigger="keyup delay:300ms consume, load"
               hx-post="frag/search"
               hx-target="#result"
             />
@@ -72,6 +72,7 @@
               name="date_after"
               placeholder="2023-01-01"
               pattern="^(\d{4}-\d{2}-\d{2})?$"
+              hx-include="#query-form"
               hx-trigger="changeDate changed, change changed"
               hx-post="frag/search"
               hx-target="#result"
@@ -83,6 +84,7 @@
               name="date_before"
               placeholder="2023-01-01"
               pattern="^(\d{4}-\d{2}-\d{2})?$"
+              hx-include="#query-form"
               hx-trigger="changeDate changed, change changed"
               hx-post="frag/search"
               hx-target="#result"
@@ -96,7 +98,7 @@
               });
             </script>
           </div>
-        </form>
+        </div>
         <script>
           let params = new URL(document.location).searchParams;
           for (let [key, value] of params) {

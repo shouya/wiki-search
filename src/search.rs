@@ -23,9 +23,10 @@ pub struct Fields {
   title: Field,
   text: Field,
   title_date: Field,
-  page_touched: Field,
+  updated: Field,
   namespace: Field,
   url: Field,
+  category: Field,
 }
 
 pub struct Search {
@@ -156,6 +157,10 @@ impl Search {
 
     let index = Index::open_or_create(dir, schema.clone())?;
     index.tokenizers().register("text", text_tokenizer());
+    index.tokenizers().register("casei", casei_tokenizer());
+    index
+      .fast_field_tokenizer()
+      .register("casei", casei_tokenizer());
 
     Ok(Search {
       fields,
@@ -339,10 +344,13 @@ impl Search {
       doc.add_date(f.title_date, tantivy_date);
     }
 
-    let tantivy_date =
-      DateTime::from_timestamp_secs(page.page_touched.timestamp());
-    doc.add_date(f.page_touched, tantivy_date);
+    let tantivy_date = DateTime::from_timestamp_secs(page.updated.timestamp());
+    doc.add_date(f.updated, tantivy_date);
     doc.add_text(f.namespace, &page.namespace.to_string());
+
+    for cat in page.categories.iter() {
+      doc.add_text(f.category, cat);
+    }
 
     Ok(doc)
   }
@@ -353,26 +361,34 @@ impl Search {
   }
 }
 
-#[rustfmt::skip]
 fn build_schema() -> (Fields, Schema) {
   use tantivy::schema::*;
 
   let mut schema_builder = Schema::builder();
 
-  let text_index_options =
-    TextOptions::default().set_stored().set_indexing_options(
+  let text_opt = TextOptions::default().set_stored().set_indexing_options(
+    TextFieldIndexing::default()
+      .set_tokenizer("text")
+      .set_index_option(IndexRecordOption::WithFreqsAndPositions),
+  );
+
+  let casei_opt = TextOptions::default()
+    .set_stored()
+    .set_fast(Some("casei"))
+    .set_indexing_options(
       TextFieldIndexing::default()
-        .set_tokenizer("text")
-        .set_index_option(IndexRecordOption::WithFreqsAndPositions),
+        .set_tokenizer("casei")
+        .set_index_option(IndexRecordOption::WithFreqs),
     );
 
   let id = schema_builder.add_i64_field("id", STORED | FAST);
-  let title = schema_builder.add_text_field("title", text_index_options.clone());
-  let text = schema_builder.add_text_field("text", text_index_options);
+  let title = schema_builder.add_text_field("title", text_opt.clone());
+  let text = schema_builder.add_text_field("text", text_opt);
   let title_date = schema_builder.add_date_field("title_date", STORED | FAST);
-  let page_touched = schema_builder.add_date_field("page_touched", STORED | FAST);
-  let namespace = schema_builder.add_text_field("namespace", STORED | STRING);
+  let updated = schema_builder.add_date_field("updated", STORED | FAST);
+  let namespace = schema_builder.add_text_field("namespace", casei_opt.clone());
   let url = schema_builder.add_text_field("url", STORED | STRING);
+  let category = schema_builder.add_text_field("category", casei_opt);
 
   let schema = schema_builder.build();
 
@@ -381,9 +397,10 @@ fn build_schema() -> (Fields, Schema) {
     title,
     text,
     title_date,
-    page_touched,
+    updated,
     namespace,
     url,
+    category,
   };
 
   (fields, schema)
@@ -402,6 +419,20 @@ fn text_tokenizer() -> TextAnalyzer {
     .filter(AsciiFoldingFilter)
     // remove long tokens (e.g. base64)
     .filter(RemoveLongFilter::limit(32))
+    .build()
+}
+
+fn casei_tokenizer() -> TextAnalyzer {
+  use tantivy::tokenizer::*;
+
+  // base: do not tokenize
+  TextAnalyzer::builder(RawTokenizer::default())
+    // lowercase all words
+    .filter(LowerCaser)
+    // stem english words
+    .filter(Stemmer::new(Language::English))
+    // normalize unicode punctuations
+    .filter(AsciiFoldingFilter)
     .build()
 }
 

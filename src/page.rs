@@ -25,27 +25,6 @@ pub enum Namespace {
   Other(i32),
 }
 
-#[derive(
-  Clone,
-  Debug,
-  PartialEq,
-  derive_more::From,
-  derive_more::Into,
-  derive_more::AsRef,
-  derive_more::AsMut,
-)]
-pub struct TitleDate(pub Option<Date>);
-
-#[derive(
-  Clone,
-  Debug,
-  derive_more::From,
-  derive_more::Into,
-  derive_more::AsRef,
-  derive_more::AsMut,
-)]
-pub struct WikiTimestamp(pub DateTime);
-
 #[derive(Clone, Debug, sqlx::FromRow)]
 pub struct Page {
   pub id: i64,
@@ -54,11 +33,23 @@ pub struct Page {
   #[sqlx(rename = "title", try_from = "String")]
   pub title_date: TitleDate,
   #[sqlx(try_from = "String")]
-  pub page_touched: WikiTimestamp,
+  pub updated: WikiTimestamp,
   #[sqlx(try_from = "i32")]
   pub namespace: Namespace,
   #[sqlx(default)]
   pub url: String,
+  #[sqlx(try_from = "String")]
+  pub categories: Categories,
+}
+
+impl Page {
+  pub fn to_url(&self, base: &str) -> String {
+    format!("{}{}{}", base, self.namespace.to_prefix(), self.title)
+  }
+
+  pub fn fill_url(&mut self, base: &str) {
+    self.url = self.to_url(base);
+  }
 }
 
 impl From<i32> for Namespace {
@@ -117,6 +108,17 @@ impl Namespace {
   }
 }
 
+#[derive(
+  Clone,
+  Debug,
+  PartialEq,
+  derive_more::From,
+  derive_more::Into,
+  derive_more::AsRef,
+  derive_more::AsMut,
+)]
+pub struct TitleDate(pub Option<Date>);
+
 const TITLE_DATE_FORMATS: [&str; 7] = [
   // Jan 2, 2023
   "%b %-d, %Y",
@@ -173,6 +175,24 @@ impl TryFrom<String> for TitleDate {
   }
 }
 
+impl TitleDate {
+  pub fn timestamp(&self) -> Option<i64> {
+    self
+      .0
+      .map(|date| date.and_hms_opt(0, 0, 0).unwrap().timestamp())
+  }
+}
+
+#[derive(
+  Clone,
+  Debug,
+  derive_more::From,
+  derive_more::Into,
+  derive_more::AsRef,
+  derive_more::AsMut,
+)]
+pub struct WikiTimestamp(pub DateTime);
+
 impl TryFrom<String> for WikiTimestamp {
   type Error = Error;
 
@@ -184,27 +204,24 @@ impl TryFrom<String> for WikiTimestamp {
   }
 }
 
-impl TitleDate {
-  pub fn timestamp(&self) -> Option<i64> {
-    self
-      .0
-      .map(|date| date.and_hms_opt(0, 0, 0).unwrap().timestamp())
-  }
-}
-
 impl WikiTimestamp {
   pub fn timestamp(&self) -> i64 {
     self.0.timestamp()
   }
 }
 
-impl Page {
-  pub fn to_url(&self, base: &str) -> String {
-    format!("{}{}{}", base, self.namespace.to_prefix(), self.title)
-  }
+#[derive(Clone, Debug, derive_more::From)]
+pub enum Categories {
+  Raw(String),
+  Split(Vec<String>),
+}
 
-  pub fn fill_url(&mut self, base: &str) {
-    self.url = self.to_url(base);
+impl Categories {
+  pub fn iter(&self) -> Box<dyn Iterator<Item = &str> + '_> {
+    match self {
+      Categories::Raw(s) => Box::new(s.split("<|||>")),
+      Categories::Split(v) => Box::new(v.iter().map(|s| s.as_str())),
+    }
   }
 }
 

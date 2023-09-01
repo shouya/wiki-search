@@ -8,7 +8,7 @@ use serde::Deserialize;
 use tantivy::{
   collector::MultiCollector,
   directory::MmapDirectory,
-  query::Query,
+  query::{AllQuery, Query},
   schema::{Field, Schema},
   tokenizer::TextAnalyzer,
   DateTime, DocAddress, Document, Index, IndexWriter, Searcher, Snippet,
@@ -215,11 +215,16 @@ impl Search {
       Some(d) => Bound::Included(d),
       None => Bound::Unbounded,
     };
-    let title_range_query = Box::new(RangeQuery::new_date_bounds(
-      "title_date".into(),
-      to_bound(options.date_after),
-      to_bound(options.date_before),
-    ));
+    let title_range_query: Box<dyn Query> =
+      if options.date_after.is_some() || options.date_before.is_some() {
+        Box::new(RangeQuery::new_date_bounds(
+          "title_date".into(),
+          to_bound(options.date_after),
+          to_bound(options.date_before),
+        ))
+      } else {
+        Box::new(AllQuery)
+      };
 
     let query = BooleanQuery::intersection(vec![query, title_range_query]);
 

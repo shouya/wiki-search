@@ -75,13 +75,15 @@ input:invalid {
   border-radius: 0.4rem;
   padding: 0.5rem;
   margin-left: 5rem;
+  /* to allow user hover on popup */
+  margin-top: -0.1rem;
   transition-duration: 0.3s;
   /* show above date picker popup */
   z-index: 100;
 }
 
-.query-term:focus-within + .query-term-help,
-.query-term:hover + .query-term-help,
+/* .query-term:focus-within + .query-term-help, */
+.query-term:hover:not(:focus-within) + .query-term-help,
 .query-term-help:hover {
   visibility: visible;
   opacity: 1;

@@ -33,7 +33,7 @@ pub struct Cli {
 pub enum Command {
   /// run the server (default subcommand)
   Server {
-    #[arg(short, long, default_value = "127.0.0.1:3000")]
+    #[arg(short, long, default_value = "127.0.0.1:3000", env)]
     bind_addr: SocketAddr,
   },
   /// run command line query
@@ -49,13 +49,20 @@ pub enum Command {
 }
 
 impl Cli {
-  pub async fn run(self) -> Result<()> {
+  pub async fn run(mut self) -> Result<()> {
     match &self.command {
       None => {
-        self
-          .run_server(SocketAddr::from(([127, 0, 0, 1], 3000)))
-          .await
+        let app = std::env::args().next().unwrap();
+        self.update_from([&app, "server"]);
+        self.run_command().await
       }
+      Some(_) => self.run_command().await,
+    }
+  }
+
+  pub async fn run_command(self) -> Result<()> {
+    match &self.command {
+      None => unreachable!("no subcommand"),
       Some(Command::Server { bind_addr }) => self.run_server(*bind_addr).await,
       Some(Command::Query { query, opts }) => self.run_query(query, opts).await,
       Some(Command::Reindex) => self.run_reindex().await,

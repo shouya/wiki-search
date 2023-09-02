@@ -81,7 +81,7 @@ impl Cli {
       let title = entry.title.highlight("\x1b[42;30m", "\x1b[m");
       let text = entry.text.highlight("\x1b[43;30m", "\x1b[m");
 
-      println!("[\x1b[32m{:.2}\x1b[m] {}", entry.score, title);
+      println!("[\x1b[32m{}\x1b[m]", title);
       println!("{}\n\n-------------\n", text);
     }
 

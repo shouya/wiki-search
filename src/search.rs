@@ -11,7 +11,7 @@ use tantivy::{
   query::{AllQuery, Query},
   schema::{Field, Schema},
   tokenizer::TextAnalyzer,
-  DateTime, DocAddress, Document, Index, IndexWriter, Searcher, Snippet,
+  DateTime, DocAddress, Document, Index, IndexWriter, Order, Searcher, Snippet,
   SnippetGenerator,
 };
 use tantivy_jieba::JiebaTokenizer;
@@ -51,7 +51,6 @@ pub struct PageMatchEntry {
   pub text: MatchSnippet,
   pub url: String,
   pub page_id: i64,
-  pub score: f32,
 }
 
 #[derive(derive_more::Constructor, Debug)]
@@ -144,6 +143,12 @@ impl Default for QueryOptions {
   }
 }
 
+impl QueryOptions {
+  pub fn date_specified(&self) -> bool {
+    self.date_before.is_some() || self.date_after.is_some()
+  }
+}
+
 impl Search {
   pub fn new(index_dir: &Path) -> Result<Self> {
     if !index_dir.exists() {
@@ -220,20 +225,68 @@ impl Search {
       Some(d) => Bound::Included(d),
       None => Bound::Unbounded,
     };
-    let title_range_query: Box<dyn Query> =
-      if options.date_after.is_some() || options.date_before.is_some() {
-        Box::new(RangeQuery::new_date_bounds(
-          "title_date".into(),
-          to_bound(options.date_after),
-          to_bound(options.date_before),
-        ))
-      } else {
-        Box::new(AllQuery)
-      };
+    let title_range_query: Box<dyn Query> = if options.date_specified() {
+      Box::new(RangeQuery::new_date_bounds(
+        "title_date".into(),
+        to_bound(options.date_after),
+        to_bound(options.date_before),
+      ))
+    } else {
+      Box::new(AllQuery)
+    };
 
     let query = BooleanQuery::intersection(vec![query, title_range_query]);
 
     Ok(Box::new(query))
+  }
+
+  fn search_order_by_score(
+    &self,
+    searcher: &mut Searcher,
+    options: &QueryOptions,
+    query: &impl Query,
+  ) -> Result<(usize, Vec<DocAddress>)> {
+    use tantivy::collector::{Count, TopDocs};
+    let mut collector = MultiCollector::new();
+    let top_docs =
+      TopDocs::with_limit(options.count).and_offset(options.offset);
+    let top_docs_handle = collector.add_collector(top_docs);
+    let total_records_handle = collector.add_collector(Count);
+
+    let mut fruits = searcher.search(query, &collector)?;
+    let top_docs = top_docs_handle
+      .extract(&mut fruits)
+      .into_iter()
+      .map(|(_score, doc_addr)| doc_addr)
+      .collect();
+    let total_records = total_records_handle.extract(&mut fruits);
+
+    Ok((total_records, top_docs))
+  }
+
+  fn search_order_by_date(
+    &self,
+    searcher: &mut Searcher,
+    options: &QueryOptions,
+    query: &impl Query,
+  ) -> Result<(usize, Vec<DocAddress>)> {
+    use tantivy::collector::{Count, TopDocs};
+    let mut collector = MultiCollector::new();
+    let top_docs = TopDocs::with_limit(options.count)
+      .and_offset(options.offset)
+      .order_by_fast_field::<DateTime>("title_date", Order::Desc);
+    let top_docs_handle = collector.add_collector(top_docs);
+    let total_records_handle = collector.add_collector(Count);
+
+    let mut fruits = searcher.search(query, &collector)?;
+    let top_docs = top_docs_handle
+      .extract(&mut fruits)
+      .into_iter()
+      .map(|(_score, doc_addr)| doc_addr)
+      .collect();
+    let total_records = total_records_handle.extract(&mut fruits);
+
+    Ok((total_records, top_docs))
   }
 
   fn search(
@@ -241,19 +294,12 @@ impl Search {
     searcher: &mut Searcher,
     options: &QueryOptions,
     query: &impl Query,
-  ) -> Result<(usize, Vec<(f32, DocAddress)>)> {
-    use tantivy::collector::{Count, TopDocs};
-    let mut collector = MultiCollector::new();
-    let top_docs_handle = collector.add_collector(
-      TopDocs::with_limit(options.count).and_offset(options.offset),
-    );
-    let total_records_handle = collector.add_collector(Count);
-
-    let mut fruits = searcher.search(query, &collector)?;
-    let top_docs = top_docs_handle.extract(&mut fruits);
-    let total_records = total_records_handle.extract(&mut fruits);
-
-    Ok((total_records, top_docs))
+  ) -> Result<(usize, Vec<DocAddress>)> {
+    if options.date_specified() {
+      self.search_order_by_date(searcher, options, query)
+    } else {
+      self.search_order_by_score(searcher, options, query)
+    }
   }
 
   fn generate_docs(
@@ -261,7 +307,7 @@ impl Search {
     searcher: &mut Searcher,
     options: &QueryOptions,
     query: &impl Query,
-    top_docs: Vec<(f32, DocAddress)>,
+    top_docs: Vec<DocAddress>,
   ) -> Result<Vec<PageMatchEntry>> {
     let title_snippet_gen =
       SnippetGenerator::create(searcher, query, self.fields.title)?;
@@ -270,7 +316,7 @@ impl Search {
     text_snippet_gen.set_max_num_chars(options.snippet_length);
 
     let mut entries = vec![];
-    for (score, addr) in top_docs {
+    for addr in top_docs {
       let doc = searcher.doc(addr)?;
       let page_id = doc.get_first(self.fields.id).unwrap().as_i64().unwrap();
       let namespace = text_field(&doc, self.fields.namespace);
@@ -293,7 +339,6 @@ impl Search {
         text,
         url,
         page_id,
-        score,
       });
     }
 

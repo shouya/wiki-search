@@ -31,3 +31,8 @@ maud = { version = "0.25.0", features = ["axum"] }
 
 [features]
 default = ["dotenv"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3

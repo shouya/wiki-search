@@ -1,14 +1,17 @@
-use std::path::Path;
+use std::{path::Path, time::Duration};
 
 use futures_util::StreamExt;
-use sqlx::{Connection, SqliteConnection};
+use sqlx::{
+  pool::{PoolConnection, PoolOptions},
+  Sqlite, SqlitePool,
+};
 
 use crate::{page::Page, util::Result};
 
 mod textify;
 
 pub struct Wiki {
-  conn: SqliteConnection,
+  pool: SqlitePool,
   wiki_base: String,
 }
 
@@ -22,11 +25,14 @@ impl Wiki {
       .read_only(true)
       .immutable(true);
 
-    let conn = SqliteConnection::connect_with(&options).await?;
+    let pool_options =
+      PoolOptions::new().idle_timeout(Some(Duration::from_secs(5 * 60)));
+    let pool = pool_options.connect_lazy_with(options);
+
     let url_base = url_base.into();
 
     Ok(Self {
-      conn,
+      pool,
       wiki_base: url_base,
     })
   }
@@ -49,7 +55,7 @@ impl Wiki {
     );
 
     let mut pages = vec![];
-    let mut stream = sqlx::query_as::<_, Page>(SQL).fetch(&mut self.conn);
+    let mut stream = sqlx::query_as::<_, Page>(SQL).fetch(&self.pool);
 
     while let Some(val) = stream.next().await {
       let mut page = val?;

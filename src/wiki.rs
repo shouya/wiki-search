@@ -1,10 +1,7 @@
 use std::{path::Path, time::Duration};
 
 use futures_util::StreamExt;
-use sqlx::{
-  pool::{PoolConnection, PoolOptions},
-  Sqlite, SqlitePool,
-};
+use sqlx::{pool::PoolOptions, SqlitePool};
 
 use crate::{page::Page, util::Result};
 
@@ -18,7 +15,7 @@ pub struct Wiki {
 impl Wiki {
   pub async fn new(
     sqlite_path: &Path,
-    url_base: impl Into<String>,
+    wiki_base: impl Into<String>,
   ) -> Result<Self> {
     let options = sqlx::sqlite::SqliteConnectOptions::new()
       .filename(sqlite_path)
@@ -29,12 +26,9 @@ impl Wiki {
       PoolOptions::new().idle_timeout(Some(Duration::from_secs(5 * 60)));
     let pool = pool_options.connect_lazy_with(options);
 
-    let url_base = url_base.into();
+    let wiki_base = wiki_base.into();
 
-    Ok(Self {
-      pool,
-      wiki_base: url_base,
-    })
+    Ok(Self { pool, wiki_base })
   }
 
   pub async fn list_pages(&mut self) -> Result<Vec<Page>> {

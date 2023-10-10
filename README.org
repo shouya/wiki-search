@@ -1,0 +1,110 @@
+* Alternative search software for MediaWiki
+
+The background: I use MediaWiki as [[https://github.com/shouya/private-wiki][my personal wiki]] software for more than 10 years as of now. The wiki contains years of diaries and various hand-written notes, totaling more than 6000 pages. I kept the wiki with the intention of long-term use, thus I choose SQLite as database and minimize the set of extensions. The goal is to keep the wiki easily maintained, easily backed-up, and easily upgradable to the latest MediaWiki software.
+
+The problem: The naive built-in full-text search is not very powerful. The suggested option is to incorporate a [[https://www.mediawiki.org/wiki/Help:CirrusSearch][search extension]] based on ElasticSearch. However, the addition of such a weighty software in my personal wiki is unacceptable.
+
+The solution: I cobbled up this piece of search software - *wiki-search* to run independently alongside MediaWiki and index its pages.
+
+Wiki-search is built upon the following wonderful libraries:
+
+- [[https://github.com/quickwit-oss/tantivy][tantivy]] ([[https://github.com/jiegec/tantivy-jieba][jieba-tantivy]])
+- [[https://github.com/launchbadge/sqlx][sqlx]]
+- [[https://github.com/tokio-rs/axum][axum]], [[https://maud.lambda.xyz/][maud]], [[https://htmx.org/docs/][htmx]]
+
+** Features
+*** Fast and manual indexing
+
+This software reads the SQLite database of the MediaWiki software directly. This allows me to retrieve all pages in one SQL query, which is significantly faster than requesting through API.
+
+The index will not automatically update itself, by design. Mostly because I only query once every few days, and rarely I need to find a very recent page. So implementing a notification mechanism seems overkill for my use-case. You need to click on the "Reindex" button on the Web UI to update the index.
+
+In practice, re-indexing my personal wiki fully (~6400 pages) only takes around 8-15 seconds, which is acceptable for me.
+
+*** Query by dates
+
+A large portion of my wiki are diary entries. Therefore, *wiki-search* supports searching by date ranges.
+
+It determines date-included entries by recognizing dates in page title. This design is because my diary entries may be updated and migrated on a later time, which may not reflect its real date (not creation/modification date).
+
+It supports many date formats, including those vaguely resembling dates, e.g. "2023", "2023-01".
+
+*** Rich query syntax
+
+Wiki-search takes advantage of the [[https://github.com/quickwit-oss/tantivy][tantivy]] library to provide rich search syntax.
+
+As a result, you can query by any of the following fields (=FIELD:QUERY=):
+
+- title
+- text
+- updated
+- title_date
+- namespace
+- category
+
+The query may also supports logical combinator (=AND=, =OR=), exclusion (=NOT=, =-=), "must include" (=+=), boosting (=TERM^2.0=).
+
+*** Multi-modal tool
+
+The main interface I designed for this software is a Web UI. But you can also invoke it by API.
+
+If you don't like the software running in server mode, you can also use the fully-contained [[https://github.com/shouya/wiki-search/blob/master/src/cli.rs#L40-L48][command line]] for reindexing and query.
+
+*** International language support
+
+At least 1000 entries in my wiki are written in Chinese, and many entries also include Japanese. So wiki-search was designed to support CJK well from the beginning.
+
+It also uses English stemming, so you don't need to type in the exact word forms to make a search.
+
+
+** Build and deployment
+
+*** CLI-only
+
+You can build the software by running:
+
+#+begin_src bash
+make
+#+end_src
+
+The static binaries can be found in the =target= directory.
+
+Usage information can be retrieved by running:
+
+#+begin_src bash
+wiki-search --help
+#+end_src
+
+*** Docker/Kubernetes
+
+To build the docker image, you can run:
+
+#+begin_src bash
+make push-docker IMAGE_NAME=docker.io/USER/wiki-search
+#+end_src
+
+The image will be built and pushed to the target you specified.
+
+Here's the portion of a sample deployment.
+
+#+begin_src
+        - name: search
+          image: docker.io/USER/wiki-search:latest
+          ports:
+            - containerPort: 404
+              name: wiki-search
+          env:
+            - name: SQLITE_PATH
+              value: /data/my_wiki.sqlite
+            - name: WIKI_BASE
+              value: https://YOUR_WIKI_BASE/index.php/
+            - name: INDEX_DIR
+              value: /index
+            - name: BIND_ADDR
+              value: 0.0.0.0:404
+          volumeMounts:
+            - name: wiki
+              subPath: data
+              readOnly: true
+              mountPath: /data
+#+end_src

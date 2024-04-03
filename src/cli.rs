@@ -114,11 +114,12 @@ impl Cli {
     let mut search = self.search().await?;
 
     let t = Instant::now();
+    let revision = wiki.latest_revision().await?;
     let pages = wiki.list_pages().await?;
     info!("Listed pages ({}) (spent {:?})", pages.len(), t.elapsed());
 
     let t = Instant::now();
-    search.reindex_pages(pages)?;
+    search.reindex_pages(pages, revision)?;
     info!("Indexed pages (spent {:?})", t.elapsed());
 
     Ok(())

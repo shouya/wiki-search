@@ -13,8 +13,11 @@ mod reindex {
     Extension(search): Extension<SearchRef>,
     Extension(wiki): Extension<WikiRef>,
   ) -> Result<()> {
-    let pages = wiki.lock().await.list_pages().await?;
-    search.write().await.reindex_pages(pages)?;
+    let mut wiki = wiki.lock().await;
+    let revision = wiki.latest_revision().await?;
+    let pages = wiki.list_pages().await?;
+    drop(wiki);
+    search.write().await.reindex_pages(pages, revision)?;
     Ok(())
   }
 }

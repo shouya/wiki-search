@@ -120,9 +120,19 @@ async fn reindex(
   Extension(wiki): Extension<WikiRef>,
 ) -> Result<Markup> {
   let start = std::time::Instant::now();
-  let pages = wiki.lock().await.list_pages().await?;
-  search.write().await.reindex_pages(pages)?;
-  let page_count = search.read().await.page_count()?;
+  let mut wiki = wiki.lock().await;
+  let revision = wiki.latest_revision().await?;
+  let mut search = search.write().await;
+
+  if !search.requires_reindex(revision) {
+    return Ok(html! {"No reindex required"});
+  }
+
+  let pages = wiki.list_pages().await?;
+  drop(wiki); // drop early to avoid contention from other threads
+
+  search.reindex_pages(pages, revision)?;
+  let page_count = search.page_count()?;
 
   let fragment = html! {
     "Indexed " (page_count) " pages "

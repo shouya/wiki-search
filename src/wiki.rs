@@ -65,4 +65,14 @@ impl Wiki {
 
     Ok(pages)
   }
+
+  // return a number that increases when any update is made that
+  // requires reindexing.
+  pub async fn latest_revision(&self) -> Result<u32> {
+    // A O(1) way to get the primary key sequence value, c.f.
+    // https://stackoverflow.com/a/2217015
+    const SQL: &str = "SELECT seq FROM sqlite_sequence WHERE name = 'revision'";
+    let val: (u32,) = sqlx::query_as(SQL).fetch_one(&self.pool).await?;
+    Ok(val.0)
+  }
 }

@@ -34,6 +34,7 @@ pub struct Search {
   schema: Schema,
   fields: Fields,
   index: Index,
+  revision: u32,
 }
 
 #[derive(Debug)]
@@ -171,17 +172,24 @@ impl Search {
       fields,
       schema,
       index,
+      revision: 0,
     })
+  }
+
+  pub fn requires_reindex(&self, latest_revision: u32) -> bool {
+    self.revision < latest_revision
   }
 
   pub fn reindex_pages(
     &mut self,
     pages: impl IntoIterator<Item = Page>,
+    revision: u32,
   ) -> Result<()> {
     let mut writer = self.index.writer(128_000_000)?;
     writer.delete_all_documents()?;
     self.index_pages_with(&writer, pages)?;
     writer.commit()?;
+    self.revision = revision;
     Ok(())
   }
 

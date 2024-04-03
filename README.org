@@ -13,13 +13,19 @@ Wiki-search is built upon the following wonderful libraries:
 - [[https://github.com/tokio-rs/axum][axum]], [[https://maud.lambda.xyz/][maud]], [[https://htmx.org/docs/][htmx]]
 
 ** Features
-*** Fast and manual indexing
+*** Fast indexing
 
-This software reads the SQLite database of the MediaWiki software directly. This allows me to retrieve all pages in one SQL query, which is significantly faster than requesting through API.
-
-The index will not automatically update itself, by design. Mostly because I only query once every few days, and rarely I need to find a very recent page. So implementing a notification mechanism seems overkill for my use-case. You need to click on the "Reindex" button on the Web UI to update the index.
+This software reads MediaWiki's SQLite database directly. This allows me to retrieve all pages in one SQL query, taking advantage of existing DB indexes. The result is significantly faster than requesting through API.
 
 In practice, re-indexing my personal wiki fully (~6400 pages) only takes around 8-15 seconds, which is acceptable for me.
+
+*** Automatic index update
+
+After starting the server, an automatic reindexing thread will spawn in the background and triggers reindexing every hour. If no update is made to the wiki's database, the reindexing will be skipped.
+
+If you need more up-to-date search results, you can manually trigger reindexing by clicking the "Reindex" button on the Web UI.
+
+If you do not need automatic reindexing, you can also disable it by setting the environment variable =AUTO_REINDEX= to =false=.
 
 *** Query by dates
 

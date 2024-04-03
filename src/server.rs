@@ -27,12 +27,6 @@ pub struct Server {
 type SearchRef = Arc<RwLock<Search>>;
 type WikiRef = Arc<Mutex<Wiki>>;
 
-#[derive(Clone, Debug)]
-pub struct UrlBase(Arc<String>);
-
-#[derive(Clone, Debug)]
-pub struct WikiBase(Arc<String>);
-
 impl Server {
   pub fn new(bind_addr: SocketAddr, search: Search, wiki: Wiki) -> Self {
     let search = Arc::new(RwLock::new(search));

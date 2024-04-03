@@ -13,6 +13,7 @@ use tokio::sync::{Mutex, RwLock};
 use tracing::{info, warn};
 
 use crate::{
+  reindexer::Reindexer,
   search::Search,
   util::{Error, Result},
   wiki::Wiki,
@@ -37,6 +38,10 @@ impl Server {
       search,
       wiki,
     }
+  }
+
+  pub fn spin_off_reindexer(&self) -> Reindexer {
+    Reindexer::new(self.search.clone(), self.wiki.clone())
   }
 
   pub async fn run(self) -> Result<()> {

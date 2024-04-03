@@ -1,5 +1,6 @@
 mod cli;
 mod page;
+mod reindexer;
 mod search;
 mod server;
 mod util;

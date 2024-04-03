@@ -121,8 +121,8 @@ async fn reindex(
 ) -> Result<Markup> {
   let start = std::time::Instant::now();
   let mut wiki = wiki.lock().await;
-  let revision = wiki.latest_revision().await?;
   let mut search = search.write().await;
+  let revision = wiki.latest_revision().await?;
 
   if !search.requires_reindex(revision) {
     return Ok(html! {"No reindex required"});

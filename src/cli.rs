@@ -35,6 +35,9 @@ pub enum Command {
   Server {
     #[arg(short, long, default_value = "127.0.0.1:3000", env)]
     bind_addr: SocketAddr,
+
+    #[arg(short, long, default_value = "true", env)]
+    auto_reindex: bool,
   },
   /// run command line query
   Query {
@@ -63,7 +66,10 @@ impl Cli {
   pub async fn run_command(self) -> Result<()> {
     match &self.command {
       None => unreachable!("no subcommand"),
-      Some(Command::Server { bind_addr }) => self.run_server(*bind_addr).await,
+      Some(Command::Server {
+        bind_addr,
+        auto_reindex,
+      }) => self.run_server(*bind_addr, *auto_reindex).await,
       Some(Command::Query { query, opts }) => self.run_query(query, opts).await,
       Some(Command::Reindex) => self.run_reindex().await,
     }
@@ -95,11 +101,20 @@ impl Cli {
     Ok(())
   }
 
-  pub async fn run_server(&self, bind_addr: SocketAddr) -> Result<()> {
+  pub async fn run_server(
+    &self,
+    bind_addr: SocketAddr,
+    auto_reindex: bool,
+  ) -> Result<()> {
     let wiki = self.wiki().await?;
     let search = self.search().await?;
 
     let server = crate::server::Server::new(bind_addr, search, wiki);
+    if auto_reindex {
+      let reindexer = server.spin_off_reindexer();
+      reindexer.start();
+    }
+
     server.run().await
   }
 

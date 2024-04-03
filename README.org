@@ -113,4 +113,6 @@ Here's the portion of a sample deployment.
               subPath: data
               readOnly: true
               mountPath: /data
+            - name: wiki-search-index
+              mountPath: /index
 #+end_src

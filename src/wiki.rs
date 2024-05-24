@@ -19,8 +19,7 @@ impl Wiki {
   ) -> Result<Self> {
     let options = sqlx::sqlite::SqliteConnectOptions::new()
       .filename(sqlite_path)
-      .read_only(true)
-      .immutable(true);
+      .read_only(true);
 
     let pool_options =
       PoolOptions::new().idle_timeout(Some(Duration::from_secs(5 * 60)));
